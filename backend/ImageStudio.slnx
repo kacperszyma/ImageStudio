@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Api/Api.csproj" />
+    <Project Path="src/Generation.Contracts/Generation.Contracts.csproj" />
+    <Project Path="src/Generation/Generation.csproj" />
+    <Project Path="src/SharedKernel/SharedKernel.csproj" />
+    <Project Path="src/Users.Contracts/Users.Contracts.csproj" />
+    <Project Path="src/Users/Users.csproj" />
+    <Project Path="src/Wallet.Contracts/Wallet.Contracts.csproj" />
+    <Project Path="src/Wallet/Wallet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Api.EndToEndTests/Api.EndToEndTests.csproj" />
+    <Project Path="tests/Generation.IntegrationTests/Generation.IntegrationTests.csproj" />
+    <Project Path="tests/Generation.UnitTests/Generation.UnitTests.csproj" />
+    <Project Path="tests/Users.UnitTests/Users.UnitTests.csproj" />
+    <Project Path="tests/Wallet.IntegrationTests/Wallet.IntegrationTests.csproj" />
+    <Project Path="tests/Wallet.UnitTests/Wallet.UnitTests.csproj" />
+  </Folder>
+</Solution>
