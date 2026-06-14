@@ -1,0 +1,44 @@
+# ---- .NET ----
+bin/
+obj/
+*.user
+*.suo
+.vs/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+*.nupkg
+
+# ---- Node / frontend ----
+node_modules/
+dist/
+.vite/
+*.local
+
+# ---- Env & secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json.example
+secrets.json
+*.pfx
+*.key
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# ---- Test / coverage ----
+[Tt]est[Rr]esults/
+coverage/
+*.trx
+*.coverage
+
+# ---- Docker / local data ----
+.pgdata/
+*.log
