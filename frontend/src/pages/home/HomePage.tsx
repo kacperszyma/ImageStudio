@@ -10,12 +10,6 @@ import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NavUser } from "@/components/nav-user"
 
-const mockUser = {
-  name: "Bob",
-  email: "bob@gmail.com",
-  avatar: "",
-}
-
 const MODELS = [
   { value: "dall-e-3", label: "DALL·E 3" },
   { value: "dall-e-2", label: "DALL·E 2" },
@@ -58,7 +52,7 @@ function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={mockUser} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   )
