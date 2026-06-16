@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { NavUser } from "@/components/nav-user"
+import { Generate } from "@/api/queries"
 
 const MODELS = [
   { value: "dall-e-3", label: "DALL·E 3" },
@@ -62,7 +63,8 @@ export default function HomePage() {
   const [imageState, setImageState] = useState<ImageState>("idle")
   const [model, setModel] = useState(MODELS[0].value)
 
-  function handleGenerate() {
+  async function handleGenerate() {
+    console.log(await Generate("lol", "Dalai Lama"))
     setImageState("loading")
     setTimeout(() => setImageState("result"), 2000)
   }
