@@ -10,9 +10,9 @@ internal sealed class GenerationService(IGenerationProvider provider) : IGenerat
     public long GetCost(string modelSlug) =>
         ImageModel.FromString(modelSlug).CreditCost;
 
-    public Task<GenerationJobDto> RunAsync(Guid jobId, string modelSlug, string prompt)
+    public async Task<GenerationJobDto> RunAsync(Guid jobId, string modelSlug, string prompt)
     {
-        // TODO: call fal.ai
-        throw new NotImplementedException();
+        var imageUrl = await provider.SubmitJobAsync(jobId, modelSlug, prompt);
+        return new GenerationJobDto(jobId, imageUrl);
     }
 }

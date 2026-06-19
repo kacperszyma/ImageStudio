@@ -19,9 +19,9 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway payment)
             await db.SaveChangesAsync();
         }
     }
-    public Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId) => throw new NotImplementedException();
-    public Task UnfreezeAsync(Guid generationJobId) => throw new NotImplementedException();
-    public Task ChargeFrozenAsync(Guid generationJobId) => throw new NotImplementedException();
+    public Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId) => Task.CompletedTask;
+    public Task UnfreezeAsync(Guid generationJobId) => Task.CompletedTask;
+    public Task ChargeFrozenAsync(Guid generationJobId) => Task.CompletedTask;
     public Task TopUpAsync(Guid userId, long amount) => throw new NotImplementedException();
     public Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId) => throw new NotImplementedException();
 }

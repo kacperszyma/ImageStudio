@@ -10,13 +10,16 @@ type Props = {
   isLoading: boolean
   model: string
   onModelChange: (value: string) => void
+  prompt: string
+  onPromptChange: (value: string) => void
   onGenerate: () => void
+  disabled?: boolean
 }
 
-export function GenerateControls({ models, isLoading, model, onModelChange, onGenerate }: Props) {
+export function GenerateControls({ models, isLoading, model, onModelChange, prompt, onPromptChange, onGenerate, disabled }: Props) {
   return (
     <>
-      <Textarea placeholder="Describe the image you want to generate…" className="resize-none" rows={3} />
+      <Textarea placeholder="Describe the image you want to generate…" className="resize-none" rows={3} value={prompt} onChange={e => onPromptChange(e.target.value)} />
       <div className="flex gap-2">
         {isLoading || (!!models?.length && !model) ? (
           <Skeleton className="h-9 w-48 rounded-md" />
@@ -32,7 +35,7 @@ export function GenerateControls({ models, isLoading, model, onModelChange, onGe
             </SelectContent>
           </Select>
         )}
-        <Button className="flex-1" onClick={onGenerate}>Generate</Button>
+        <Button className="flex-1" onClick={onGenerate} disabled={disabled}>Generate</Button>
       </div>
     </>
   )

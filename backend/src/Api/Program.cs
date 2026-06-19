@@ -4,6 +4,7 @@ using Generation;
 using GenerationManager;
 using Generation.Contracts;
 using Api.Middleware;
+using Api.Hubs;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Wallet.Contracts;
@@ -12,6 +13,7 @@ DotNetEnv.Env.Load("../../../.env");
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR();
 builder.Services.AddWalletModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
 builder.Services.AddGenerationModule(builder.Configuration);
@@ -23,7 +25,8 @@ builder.Services.AddCors(options =>
                       {
                           policy.WithOrigins("http://localhost:5173")
                                 .AllowAnyHeader()
-                                .AllowAnyMethod();
+                                .AllowAnyMethod()
+                                .AllowCredentials();
                       });
 });
 builder.Services.AddAuthentication(options =>
@@ -35,6 +38,16 @@ builder.Services.AddAuthentication(options =>
             options.Authority = "https://dev-yw7pijmj3lf7zgrf.us.auth0.com/";
             options.Audience = "https://imagestudio-api";
             options.MapInboundClaims = false;
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = ctx =>
+                {
+                    var token = ctx.Request.Query["access_token"];
+                    if (!string.IsNullOrEmpty(token) && ctx.Request.Path.StartsWithSegments("/generate"))
+                        ctx.Token = token;
+                    return Task.CompletedTask;
+                }
+            };
         });
 builder.Services.AddAuthorization();
 
@@ -52,14 +65,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference("/docs", opt => opt.WithTitle("API Routes"));
 }
 
-app.UseHttpsRedirection();
-
-app.MapGet("/generate", () =>
-{
-
-
-
-}).RequireAuthorization();
+app.MapHub<GenerationHub>("/generate");
 
 app.MapGet("/models", (IGenerationService generationService) =>
 {
