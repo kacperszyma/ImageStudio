@@ -25,6 +25,8 @@
     <ProjectReference Include="..\Wallet.Contracts\Wallet.Contracts.csproj" />
     <ProjectReference Include="..\Generation\Generation.csproj" />
     <ProjectReference Include="..\Generation.Contracts\Generation.Contracts.csproj" />
+    <ProjectReference Include="..\GenerationManager\GenerationManager.csproj" />
+    <ProjectReference Include="..\GenerationManager.Contracts\GenerationManager.Contracts.csproj" />
     <ProjectReference Include="..\SharedKernel\SharedKernel.csproj" />
   </ItemGroup>
 

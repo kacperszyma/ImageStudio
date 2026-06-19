@@ -12,10 +12,12 @@ public abstract class ImageModel
     public static IReadOnlyList<ImageModel> All => _extent;
 
     public string Slug { get; }
+    public long CreditCost { get; }
 
-    protected ImageModel(string slug)
+    protected ImageModel(string slug, long creditCost)
     {
         Slug = slug;
+        CreditCost = creditCost;
         _extent.Add(this);
     }
 
@@ -31,8 +33,8 @@ public abstract class ImageModel
 
     public override string ToString() => Slug;
 
-    private sealed class DallE3Model() : ImageModel("dall-e-3");
-    private sealed class StableDiffusionXLModel() : ImageModel("stable-diffusion-xl");
-    private sealed class MidjourneyV6Model() : ImageModel("midjourney-v6");
-    private sealed class FluxProModel() : ImageModel("flux-pro");
+    private sealed class DallE3Model() : ImageModel("dall-e-3", 100);
+    private sealed class StableDiffusionXLModel() : ImageModel("stable-diffusion-xl", 50);
+    private sealed class MidjourneyV6Model() : ImageModel("midjourney-v6", 120);
+    private sealed class FluxProModel() : ImageModel("flux-pro", 80);
 }

@@ -2,9 +2,9 @@ namespace Users.Contracts;
 
 public interface IUserService
 {
-    Task EnsureProvisioned(string sub);
-    Task<bool> TryCreate(string sub);
-    Task<bool> Exists(string sub);
-    Task<UserDto?> Get(string sub);
+    Task<(bool wasCreated, Guid userId)> EnsureProvisionedAsync(string sub, string email);
+    Task<bool> ExistsAsync(string sub);
+    Task<UserDto?> GetAsync(string sub);
 }
-public record UserDto(string Sub, DateTime CreatedAt);
+
+public record UserDto(Guid Id, string Sub, string Email, DateTime CreatedAt);

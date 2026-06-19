@@ -13,8 +13,10 @@ internal sealed class UsersDbContext(DbContextOptions<UsersDbContext> options)
         b.Entity<User>(e =>
         {
             e.ToTable("users");
-            e.HasKey(x => x.Sub);
+            e.HasKey(x => x.Id);
             e.Property(x => x.Sub).HasMaxLength(128);
+            e.HasIndex(x => x.Sub).IsUnique();
+            e.Property(x => x.Email).HasMaxLength(256);
         });
     }
 }

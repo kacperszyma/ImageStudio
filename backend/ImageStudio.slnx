@@ -8,8 +8,11 @@
     <Project Path="src/Users/Users.csproj" />
     <Project Path="src/Wallet.Contracts/Wallet.Contracts.csproj" />
     <Project Path="src/Wallet/Wallet.csproj" />
+    <Project Path="src/GenerationManager.Contracts/GenerationManager.Contracts.csproj" />
+    <Project Path="src/GenerationManager/GenerationManager.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Api.UnitTests/Api.UnitTests.csproj" />
     <Project Path="tests/Api.EndToEndTests/Api.EndToEndTests.csproj" />
     <Project Path="tests/Generation.IntegrationTests/Generation.IntegrationTests.csproj" />
     <Project Path="tests/Generation.UnitTests/Generation.UnitTests.csproj" />

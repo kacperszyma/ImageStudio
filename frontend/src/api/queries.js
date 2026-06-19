@@ -20,4 +20,9 @@ async function Generate(prompt, model, validToken){
     return response.data;
 }
 
-export {Generate, GetModels}
+async function GetBalance(validToken){
+    const response = await axios.get(BASE_URL + "/balance", await Config(validToken))
+    return response.data;
+}
+
+export {Generate, GetModels, GetBalance}

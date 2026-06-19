@@ -5,31 +5,24 @@ namespace Users;
 
 internal sealed class UserService(UsersDbContext db) : IUserService
 {
-    public async Task EnsureProvisioned(string sub)
+    public async Task<(bool wasCreated, Guid userId)> EnsureProvisionedAsync(string sub, string email)
     {
-        if (!await db.Users.AnyAsync(u => u.Sub == sub))
-        {
-            db.Users.Add(new User { Sub = sub, CreatedAt = DateTime.UtcNow });
-            await db.SaveChangesAsync();
-        }
-    }
+        var existing = await db.Users.FirstOrDefaultAsync(u => u.Sub == sub);
+        if (existing is not null)
+            return (false, existing.Id);
 
-    public async Task<bool> TryCreate(string sub)
-    {
-        if (await db.Users.AnyAsync(u => u.Sub == sub))
-            return false;
-
-        db.Users.Add(new User { Sub = sub, CreatedAt = DateTime.UtcNow });
+        var user = new User { Id = Guid.NewGuid(), Sub = sub, Email = email, CreatedAt = DateTime.UtcNow };
+        db.Users.Add(user);
         await db.SaveChangesAsync();
-        return true;
+        return (true, user.Id);
     }
 
-    public Task<bool> Exists(string sub) =>
+    public Task<bool> ExistsAsync(string sub) =>
         db.Users.AnyAsync(u => u.Sub == sub);
 
-    public async Task<UserDto?> Get(string sub) =>
+    public async Task<UserDto?> GetAsync(string sub) =>
         await db.Users
             .Where(u => u.Sub == sub)
-            .Select(u => new UserDto(u.Sub, u.CreatedAt))
+            .Select(u => new UserDto(u.Id, u.Sub, u.Email, u.CreatedAt))
             .FirstOrDefaultAsync();
 }

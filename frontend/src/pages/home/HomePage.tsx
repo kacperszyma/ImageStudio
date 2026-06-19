@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { Generate, GetModels } from "@/api/queries"
+import { Generate, GetModels, GetBalance } from "@/api/queries"
 import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery } from '@tanstack/react-query'
 import { AppSidebar } from "./subcomponents/AppSidebar"
@@ -29,7 +29,7 @@ export default function HomePage() {
   }, [models])
 
   async function handleGenerate() {
-    console.log(await Generate("lol", "Dalai Lama", getAccessTokenSilently))
+    console.log(await GetBalance(getAccessTokenSilently))
     setImageState("loading")
     setTimeout(() => setImageState("result"), 2000)
   }
