@@ -10,7 +10,7 @@ import { ImageArea } from "./subcomponents/ImageArea"
 import { LoginPrompt } from "./subcomponents/LoginPrompt"
 import { GenerateControls } from "./subcomponents/GenerateControls"
 
-type ImageModel = { name: string }
+type ImageModel = { slug: string; creditCost: number }
 type ImageState = "idle" | "loading" | "result"
 
 export default function HomePage() {
@@ -25,7 +25,7 @@ export default function HomePage() {
   })
 
   useEffect(() => {
-    if (models && models.length > 0) setModel(models[0].name)
+    if (models && models.length > 0) setModel(models[0].slug)
   }, [models])
 
   async function handleGenerate() {

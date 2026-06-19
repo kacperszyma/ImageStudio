@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-type ImageModel = { name: string }
+type ImageModel = { slug: string; creditCost: number }
 
 type Props = {
   models: ImageModel[] | undefined
@@ -18,7 +18,7 @@ export function GenerateControls({ models, isLoading, model, onModelChange, onGe
     <>
       <Textarea placeholder="Describe the image you want to generate…" className="resize-none" rows={3} />
       <div className="flex gap-2">
-        {isLoading ? (
+        {isLoading || (!!models?.length && !model) ? (
           <Skeleton className="h-9 w-48 rounded-md" />
         ) : (
           <Select value={model} onValueChange={onModelChange}>
@@ -26,8 +26,8 @@ export function GenerateControls({ models, isLoading, model, onModelChange, onGe
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {models?.map((m) => (
-                <SelectItem key={m.name} value={m.name}>{m.name}</SelectItem>
+              {models?.map((m, i) => (
+                <SelectItem key={`${i}-${m.slug}`} value={m.slug}>{m.slug}</SelectItem>
               ))}
             </SelectContent>
           </Select>

@@ -3,7 +3,7 @@ using Wallet.Contracts;
 
 namespace Wallet;
 
-internal sealed class WalletService(WalletDbContext db) : IWalletService
+internal sealed class WalletService(WalletDbContext db, IPaymentGateway payment) : IWalletService
 {
     public async Task<long> GetBalanceAsync(Guid userId)
     {

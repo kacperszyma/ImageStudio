@@ -2,7 +2,7 @@ using Generation.Contracts;
 
 namespace Generation;
 
-public class GenerationService : IGenerationService
+internal sealed class GenerationService(IGenerationProvider provider) : IGenerationService
 {
     public List<ModelDto> GetModels() =>
         ImageModel.All.Select(m => new ModelDto(m.Slug, m.CreditCost)).ToList();

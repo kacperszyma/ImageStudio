@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wallet.Contracts;
+using Wallet.Stripe;
 
 namespace Wallet;
 
@@ -12,6 +13,7 @@ public static class WalletModule
     {
         services.AddDbContext<WalletDbContext>(opt =>
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
+        services.AddScoped<IPaymentGateway, StripePaymentGateway>();
         services.AddScoped<IWalletService, WalletService>();
         return services;
     }
