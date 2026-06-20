@@ -37,10 +37,13 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
 
+        if (await HoldExistsAsync(idempotencyKey)) return;
+
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
         {
             var wallet = await LockWalletAsync(userId);
+            if (await HoldExistsAsync(idempotencyKey)) return;   // concurrent duplicate
 
             if (wallet.Balance < amount)
                 throw new InsufficientFundsException(userId, amount, wallet.Balance);
@@ -168,10 +171,13 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
 
+        if (await LedgerEntryExistsAsync(idempotencyKey)) return;
+
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
         {
             var wallet = await LockWalletAsync(userId);
+            if (await LedgerEntryExistsAsync(idempotencyKey)) return;   // concurrent duplicate
 
             wallet.Balance += amount;
 
@@ -212,6 +218,12 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
         db.Accounts
             .FromSqlInterpolated($"SELECT * FROM wallet.accounts WHERE \"UserId\" = {userId} FOR UPDATE")
             .SingleAsync();
+
+    private Task<bool> HoldExistsAsync(string key) =>
+        db.Holds.AnyAsync(h => h.IdempotencyKey == key);
+
+    private Task<bool> LedgerEntryExistsAsync(string key) =>
+        db.Ledger.AnyAsync(l => l.IdempotencyKey == key);
 
     private static bool IsUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: "23505" };
