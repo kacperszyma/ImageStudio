@@ -1,4 +1,5 @@
 import { useAuth0 } from "@auth0/auth0-react"
+import { Link } from "react-router"
 import {
   Avatar,
   AvatarFallback,
@@ -19,7 +20,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon, LogInIcon } from "lucide-react"
+import { ChevronsUpDownIcon, BadgeCheckIcon, CreditCardIcon, LogOutIcon, LogInIcon } from "lucide-react"
 
 function getInitials(name?: string) {
   if (!name) return "?"
@@ -106,24 +107,13 @@ export function NavUser() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem render={<Link to="/profile" />}>
                 <BadgeCheckIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <CreditCardIcon />
                 Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon />
-                Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

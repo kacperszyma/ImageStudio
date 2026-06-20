@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useRef } from "react"
 import { HubConnection } from "@microsoft/signalr"
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { GetModels, GetBalance } from "@/api/queries"
 import { buildGenerationConnection } from "@/api/generationHub"
 import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery } from '@tanstack/react-query'
-import { AppSidebar } from "./subcomponents/AppSidebar"
+import { Layout } from "@/components/Layout"
 import { ImageArea } from "./subcomponents/ImageArea"
 import { LoginPrompt } from "./subcomponents/LoginPrompt"
 import { GenerateControls } from "./subcomponents/GenerateControls"
@@ -100,28 +99,24 @@ export default function HomePage() {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <main className="flex flex-1 flex-col p-4 gap-4">
-        <SidebarTrigger />
-        <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto">
-          <ImageArea state={imageState} imageUrl={imageUrl} progress={progress} />
-          {!isAuthenticated ? (
-            <LoginPrompt />
-          ) : (
-            <GenerateControls
-              models={models}
-              isLoading={isLoading}
-              model={model}
-              onModelChange={setModel}
-              prompt={prompt}
-              onPromptChange={setPrompt}
-              onGenerate={handleGenerate}
-              disabled={!hubConnected}
-            />
-          )}
-        </div>
-      </main>
-    </SidebarProvider>
+    <Layout>
+      <div className="flex flex-col gap-4 w-full max-w-2xl mx-auto">
+        <ImageArea state={imageState} imageUrl={imageUrl} progress={progress} />
+        {!isAuthenticated ? (
+          <LoginPrompt />
+        ) : (
+          <GenerateControls
+            models={models}
+            isLoading={isLoading}
+            model={model}
+            onModelChange={setModel}
+            prompt={prompt}
+            onPromptChange={setPrompt}
+            onGenerate={handleGenerate}
+            disabled={!hubConnected}
+          />
+        )}
+      </div>
+    </Layout>
   )
 }
