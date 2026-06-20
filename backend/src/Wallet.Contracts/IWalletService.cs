@@ -2,12 +2,12 @@ namespace Wallet.Contracts;
 
 public interface IWalletService
 {
-    Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId);
+    Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId, string idempotencyKey);
     Task UnfreezeAsync(Guid generationJobId);
     Task ChargeFrozenAsync(Guid generationJobId);
     Task EnsureAccountAsync(Guid userId);
     Task<long> GetBalanceAsync(Guid userId);
-    Task TopUpAsync(Guid userId, long amount);
+    Task TopUpAsync(Guid userId, long amount, string idempotencyKey);
     Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId);
 }
 

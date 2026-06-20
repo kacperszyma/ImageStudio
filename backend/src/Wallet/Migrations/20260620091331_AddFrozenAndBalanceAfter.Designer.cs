@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Wallet;
@@ -11,9 +12,11 @@ using Wallet;
 namespace Wallet.Migrations
 {
     [DbContext(typeof(WalletDbContext))]
-    partial class WalletDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260620091331_AddFrozenAndBalanceAfter")]
+    partial class AddFrozenAndBalanceAfter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,18 +55,16 @@ namespace Wallet.Migrations
                     b.Property<long>("Amount")
                         .HasColumnType("bigint");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<long>("BalanceAfter")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("PurchaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("ReleasedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("PurchaseId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -106,6 +107,10 @@ namespace Wallet.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RefernceId")
                         .IsRequired()
                         .HasColumnType("text");
 

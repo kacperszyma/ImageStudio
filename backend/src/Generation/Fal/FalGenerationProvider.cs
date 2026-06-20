@@ -2,5 +2,9 @@ namespace Generation.Fal;
 
 internal sealed class FalGenerationProvider : IGenerationProvider
 {
-    public Task<string> SubmitJobAsync(Guid jobId, string modelSlug, string prompt) => throw new NotImplementedException();
+    public async Task<string> SubmitJobAsync(Guid jobId, string modelSlug, string prompt)
+    {
+
+        return "submited";
+    }
 }

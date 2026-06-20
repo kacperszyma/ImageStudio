@@ -1,10 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using Wallet.Contracts;
+using System.Data;
+using Npgsql;
 
 namespace Wallet;
 
-internal sealed class WalletService(WalletDbContext db, IPaymentGateway payment) : IWalletService
+internal sealed class WalletService(WalletDbContext db) : IWalletService
 {
+    private const string HoldActive = "active";
+    private const string HoldReleased = "released";
+    private const string HoldCharged = "charged";
+
     public async Task<long> GetBalanceAsync(Guid userId)
     {
         var account = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == userId);
@@ -13,15 +19,200 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway payment)
 
     public async Task EnsureAccountAsync(Guid userId)
     {
-        if (!await db.Accounts.AnyAsync(a => a.UserId == userId))
+        if (await db.Accounts.AnyAsync(a => a.UserId == userId))
+            return;
+
+        db.Accounts.Add(new WalletAccount { UserId = userId, Balance = WalletAccount.StartingBalance });
+        try
         {
-            db.Accounts.Add(new WalletAccount { UserId = userId, Balance = WalletAccount.StartingBalance });
             await db.SaveChangesAsync();
         }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            // Account was created concurrently by another request — nothing to do.
+        }
     }
-    public Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId) => Task.CompletedTask;
-    public Task UnfreezeAsync(Guid generationJobId) => Task.CompletedTask;
-    public Task ChargeFrozenAsync(Guid generationJobId) => Task.CompletedTask;
-    public Task TopUpAsync(Guid userId, long amount) => throw new NotImplementedException();
-    public Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId) => throw new NotImplementedException();
+
+    public async Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId, string idempotencyKey)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
+
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        try
+        {
+            var wallet = await LockWalletAsync(userId);
+
+            if (wallet.Balance < amount)
+                throw new InsufficientFundsException(userId, amount, wallet.Balance);
+
+            wallet.Balance -= amount;
+            wallet.Frozen += amount;
+
+            db.Ledger.Add(new WalletLedger
+            {
+                CreatedAt = DateTime.UtcNow,
+                WalletId = userId,
+                Amount = amount,                 // magnitude; direction is conveyed by Type
+                Type = TransactionType.Freeze,
+                BalanceAfter = wallet.Balance,
+                IdempotencyKey = idempotencyKey,
+            });
+            db.Holds.Add(new WalletHold
+            {
+                CreatedAt = DateTime.UtcNow,
+                WalletId = userId,
+                PurchaseId = generationJobId,
+                Amount = amount,
+                Status = HoldActive,
+                IdempotencyKey = idempotencyKey,
+            });
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            await tx.RollbackAsync();   // duplicate idempotency key — already processed
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task UnfreezeAsync(Guid generationJobId)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        try
+        {
+            var hold = await db.Holds.FirstOrDefaultAsync(
+                h => h.PurchaseId == generationJobId && h.Status == HoldActive);
+            if (hold is null)
+                return;   // no active hold — never frozen or already finalized; idempotent no-op
+
+            var wallet = await LockWalletAsync(hold.WalletId);
+
+            wallet.Balance += hold.Amount;
+            wallet.Frozen -= hold.Amount;
+
+            db.Ledger.Add(new WalletLedger
+            {
+                CreatedAt = DateTime.UtcNow,
+                WalletId = wallet.UserId,
+                Amount = hold.Amount,            // refund back to spendable balance
+                Type = TransactionType.Unfreeze,
+                BalanceAfter = wallet.Balance,
+                IdempotencyKey = $"unfreeze_{generationJobId}",
+            });
+            hold.Status = HoldReleased;
+            hold.ReleasedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            await tx.RollbackAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task ChargeFrozenAsync(Guid generationJobId)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        try
+        {
+            var hold = await db.Holds.FirstOrDefaultAsync(
+                h => h.PurchaseId == generationJobId && h.Status == HoldActive);
+            if (hold is null)
+                return;   // already finalized; idempotent no-op
+
+            var wallet = await LockWalletAsync(hold.WalletId);
+
+            // Balance was already debited when the hold was created — charging just
+            // consumes the reservation and never returns to spendable balance.
+            wallet.Frozen -= hold.Amount;
+
+            db.Ledger.Add(new WalletLedger
+            {
+                CreatedAt = DateTime.UtcNow,
+                WalletId = wallet.UserId,
+                Amount = hold.Amount,
+                Type = TransactionType.Charge,
+                BalanceAfter = wallet.Balance,
+                IdempotencyKey = $"charge_{hold.Id}",
+            });
+            hold.Status = HoldCharged;
+            hold.ReleasedAt = DateTime.UtcNow;
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            await tx.RollbackAsync();
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task TopUpAsync(Guid userId, long amount, string idempotencyKey)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
+
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        try
+        {
+            var wallet = await LockWalletAsync(userId);
+
+            wallet.Balance += amount;
+
+            db.Ledger.Add(new WalletLedger
+            {
+                CreatedAt = DateTime.UtcNow,
+                WalletId = userId,
+                Amount = amount,
+                Type = TransactionType.TopUp,
+                BalanceAfter = wallet.Balance,
+                IdempotencyKey = idempotencyKey,
+            });
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            await tx.RollbackAsync();   // duplicate webhook delivery — already credited
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId) =>
+        await db.Ledger
+            .Where(l => l.WalletId == userId)
+            .OrderByDescending(l => l.CreatedAt)
+            .Select(l => new TransactionDto(l.Id, l.WalletId, l.Amount, l.Type, l.CreatedAt))
+            .ToListAsync();
+
+    // Locks the wallet row for the duration of the transaction (SELECT ... FOR UPDATE);
+    // EF has no first-class API for row locks, so this uses raw SQL.
+    private Task<WalletAccount> LockWalletAsync(Guid userId) =>
+        db.Accounts
+            .FromSqlInterpolated($"SELECT * FROM wallet.accounts WHERE \"UserId\" = {userId} FOR UPDATE")
+            .SingleAsync();
+
+    private static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: "23505" };
 }

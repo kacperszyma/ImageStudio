@@ -13,7 +13,7 @@ internal sealed class GenerationManagerService(
         var jobId = Guid.NewGuid();
         var cost = generationService.GetCost(modelSlug);
 
-        await walletService.FreezeFundsAsync(userId, cost, jobId);
+        await walletService.FreezeFundsAsync(userId, cost, jobId, jobId.ToString());
 
         try
         {

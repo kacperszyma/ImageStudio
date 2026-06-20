@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Wallet;
@@ -11,9 +12,11 @@ using Wallet;
 namespace Wallet.Migrations
 {
     [DbContext(typeof(WalletDbContext))]
-    partial class WalletDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260620090112_DropWalletAccountId")]
+    partial class DropWalletAccountId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,9 +35,6 @@ namespace Wallet.Migrations
                     b.Property<long>("Balance")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("Frozen")
-                        .HasColumnType("bigint");
-
                     b.HasKey("UserId");
 
                     b.ToTable("accounts", "wallet", t =>
@@ -43,7 +43,7 @@ namespace Wallet.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Wallet.WalletHold", b =>
+            modelBuilder.Entity("Wallet.WalletHolds", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -52,18 +52,13 @@ namespace Wallet.Migrations
                     b.Property<long>("Amount")
                         .HasColumnType("bigint");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("PurchaseId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("ReleasedAt")
-                        .HasColumnType("timestamp with time zone");
+                    b.Property<string>("PurchaseId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -99,13 +94,14 @@ namespace Wallet.Migrations
                     b.Property<long>("Amount")
                         .HasColumnType("bigint");
 
-                    b.Property<long>("BalanceAfter")
-                        .HasColumnType("bigint");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RefernceId")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -131,7 +127,7 @@ namespace Wallet.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Wallet.WalletHold", b =>
+            modelBuilder.Entity("Wallet.WalletHolds", b =>
                 {
                     b.HasOne("Wallet.WalletAccount", "Wallet")
                         .WithMany()
