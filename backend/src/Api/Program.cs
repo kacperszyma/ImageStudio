@@ -77,6 +77,12 @@ app.MapGet("/balance", async (HttpContext ctx, IWalletService walletService) =>
     return Results.Ok(await walletService.GetBalanceAsync(userId));
 }).RequireAuthorization();
 
+app.MapGet("/history", async (HttpContext ctx, IGenerationService generationService) =>
+{
+    var userId = (Guid)ctx.Items["UserId"]!;
+    return Results.Ok(await generationService.GetGenerationHistory(userId));
+}).RequireAuthorization();
+
 
 app.Run();
 

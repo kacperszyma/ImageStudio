@@ -4,20 +4,24 @@ public abstract class ImageModel
 {
     private static readonly List<ImageModel> _extent = [];
 
-    public static readonly ImageModel DallE3 = new DallE3Model();
-    public static readonly ImageModel StableDiffusionXL = new StableDiffusionXLModel();
-    public static readonly ImageModel MidjourneyV6 = new MidjourneyV6Model();
-    public static readonly ImageModel FluxPro = new FluxProModel();
+    public static readonly ImageModel FluxSchnell = new FluxSchnellModel();
+    public static readonly ImageModel GrokImage = new GrokImageModel();
+    public static readonly ImageModel Flux2Pro = new Flux2ProModel();
+    public static readonly ImageModel NanoBanana2 = new NanoBanana2Model();
+    public static readonly ImageModel NanoBananaPro = new NanoBananaProModel();
+    public static readonly ImageModel GptImage2 = new GptImage2Model();
 
     public static IReadOnlyList<ImageModel> All => _extent;
 
     public string Slug { get; }
     public long CreditCost { get; }
+    public string FalModelId { get; }
 
-    protected ImageModel(string slug, long creditCost)
+    protected ImageModel(string slug, long creditCost, string falModelId)
     {
         Slug = slug;
         CreditCost = creditCost;
+        FalModelId = falModelId;
         _extent.Add(this);
     }
 
@@ -33,8 +37,10 @@ public abstract class ImageModel
 
     public override string ToString() => Slug;
 
-    private sealed class DallE3Model() : ImageModel("dall-e-3", 100);
-    private sealed class StableDiffusionXLModel() : ImageModel("stable-diffusion-xl", 50);
-    private sealed class MidjourneyV6Model() : ImageModel("midjourney-v6", 120);
-    private sealed class FluxProModel() : ImageModel("flux-pro", 80);
+    private sealed class FluxSchnellModel() : ImageModel("flux-schnell", 3, "fal-ai/flux/schnell");
+    private sealed class GrokImageModel() : ImageModel("grok-image", 22, "xai/grok-imagine-image");
+    private sealed class Flux2ProModel() : ImageModel("flux-2-pro", 30, "fal-ai/flux-2-pro");
+    private sealed class NanoBanana2Model() : ImageModel("nano-banana-2", 80, "fal-ai/nano-banana-2");
+    private sealed class NanoBananaProModel() : ImageModel("nano-banana-pro", 150, "fal-ai/nano-banana-pro");
+    private sealed class GptImage2Model() : ImageModel("gpt-image-2", 167, "openai/gpt-image-2");
 }

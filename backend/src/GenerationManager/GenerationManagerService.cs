@@ -17,7 +17,7 @@ internal sealed class GenerationManagerService(
 
         try
         {
-            var job = await generationService.RunAsync(jobId, modelSlug, prompt);
+            var job = await generationService.RunAsync(jobId, userId, modelSlug, prompt);
             await walletService.ChargeFrozenAsync(jobId);
             return new GenerationResultDto(job.JobId, job.ImageUrl);
         }
