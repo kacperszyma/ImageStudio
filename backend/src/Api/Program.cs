@@ -5,6 +5,7 @@ using GenerationManager;
 using Generation.Contracts;
 using Api.Middleware;
 using Api.Hubs;
+using GenerationManager.Contracts;
 using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Wallet.Contracts;
@@ -14,10 +15,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
+builder.Services.AddScoped<IGenerationNotifier, Api.Hubs.SignalRGenerationNotifier>();
 builder.Services.AddWalletModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
 builder.Services.AddGenerationModule(builder.Configuration);
-builder.Services.AddGenerationManagerModule();
+builder.Services.AddGenerationManagerModule(builder.Configuration);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: "Frontend",
@@ -67,6 +69,29 @@ if (app.Environment.IsDevelopment())
 
 app.MapHub<GenerationHub>("/generate");
 
+// Fal posts generation results here. Path is derived from the same config
+// value we hand to Fal as ?fal_webhook=, so the endpoint and the registration
+// can never drift apart.
+var falWebhookPath = new Uri(app.Configuration["FAL_WEBHOOK_URL"]
+    ?? throw new InvalidOperationException("FAL_WEBHOOK_URL is not configured.")).AbsolutePath;
+
+app.MapPost(falWebhookPath, async (
+    HttpRequest request,
+    IGenerationService generationService,
+    IGenerationManager generationManager) =>
+{
+    // The host owns the web framework: pull the raw bytes off the request and
+    // hand them to Generation, which owns the provider's wire format.
+    using var buffer = new MemoryStream();
+    await request.Body.CopyToAsync(buffer);
+
+    var callback = generationService.ParseCallback(buffer.ToArray());
+    await generationManager.CompleteJobAsync(callback.RequestId, callback.ImageUrl, callback.Success);
+
+    // Always 200 so Fal stops retrying; CompleteJobAsync is idempotent anyway.
+    return Results.Ok();
+});
+
 app.MapGet("/models", (IGenerationService generationService) =>
 {
     return Results.Ok(generationService.GetModels());
@@ -83,6 +108,11 @@ app.MapGet("/history", async (HttpContext ctx, IGenerationService generationServ
     return Results.Ok(await generationService.GetGenerationHistory(userId));
 }).RequireAuthorization();
 
+app.MapGet("/transactions", async (HttpContext ctx, IWalletService walletService) =>
+{
+    var userId = (Guid)ctx.Items["UserId"]!;
+    return Results.Ok(await walletService.GetTransactionsAsync(userId));
+}).RequireAuthorization();
 
 app.Run();
 

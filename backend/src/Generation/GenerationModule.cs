@@ -14,7 +14,8 @@ public static class GenerationModule
         services.AddDbContext<GenerationDbContext>(opt =>
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
         services.AddHttpClient<FalClient>();
-        services.AddScoped<IGenerationProvider, MockGenerationProvider>();
+        services.AddScoped<IGenerationProvider,FalGenerationProvider>();
+       // services.AddScoped<IGenerationProvider, MockGenerationProvider>();
         services.AddScoped<IGenerationService, GenerationService>();
         return services;
     }

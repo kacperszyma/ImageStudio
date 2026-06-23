@@ -14,6 +14,7 @@ internal sealed class GenerationDbContext(DbContextOptions<GenerationDbContext> 
         {
             e.ToTable("generations");
             e.HasKey(x => x.Id);
+            e.HasIndex(x => x.FalRequestId).HasDatabaseName("idx_generations_fal_request");
         });
     }
 }

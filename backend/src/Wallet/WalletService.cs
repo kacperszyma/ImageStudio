@@ -207,7 +207,7 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
 
     public async Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId) =>
         await db.Ledger
-            .Where(l => l.WalletId == userId)
+            .Where(l => l.WalletId == userId && l.Type == TransactionType.Charge)
             .OrderByDescending(l => l.CreatedAt)
             .Select(l => new TransactionDto(l.Id, l.WalletId, l.Amount, l.Type, l.CreatedAt))
             .ToListAsync();

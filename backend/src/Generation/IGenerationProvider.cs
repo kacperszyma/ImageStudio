@@ -1,6 +1,9 @@
+using Generation.Contracts;
 namespace Generation;
+
 
 internal interface IGenerationProvider
 {
-    Task<string> SubmitJobAsync(Guid jobId, string modelSlug, string prompt);
+    Task<string> SubmitJobAsync(string modelSlug, string prompt);
+    GenerationCallback ParseCallback(byte[] body);
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { HubConnection } from "@microsoft/signalr"
 import { GetModels, GetBalance } from "@/api/queries"
-import { buildGenerationConnection } from "@/api/generationHub"
+import { buildGenerationConnection, registerGenerationHandlers, startGeneration } from "@/api/generationHub"
 import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery } from '@tanstack/react-query'
 import { Layout } from "@/components/Layout"
@@ -40,18 +40,29 @@ export default function HomePage() {
 
     const connection = buildGenerationConnection(getAccessTokenSilently)
 
-    connection.on("GenerationProgress", (percent: number) => {
-      gateRef.current = percent
-    })
-
-    connection.on("GenerationComplete", (_jobId: string, url: string) => {
-      setImageUrl(url)
-      gateRef.current = 100
-    })
-
-    connection.on("GenerationFailed", (message: string) => {
-      console.error("Generation failed:", message)
-      setImageState("idle")
+    registerGenerationHandlers(connection, {
+      onAccepted: () => {
+        // Enqueued; inch the bar forward while we wait for the webhook.
+        gateRef.current = 70
+      },
+      onComplete: (_jobId, url) => {
+        // Preload so the bar holds at 70 until the bytes are cached; revealing a
+        // not-yet-loaded <img> would briefly paint its alt text.
+        const img = new Image()
+        const reveal = () => {
+          setImageUrl(url)
+          gateRef.current = 100
+        }
+        img.onload = reveal
+        img.onerror = reveal
+        img.src = url
+      },
+      onFailed: (reason) => {
+        console.error("Generation failed:", reason)
+        setImageState("idle")
+        setProgress(0)
+        gateRef.current = 0
+      },
     })
 
     connection.onclose(() => setHubConnected(false))
@@ -95,7 +106,7 @@ export default function HomePage() {
     setProgress(0)
     gateRef.current = 30
     setImageState("loading")
-    await hubRef.current.invoke("Generate", model, prompt)
+    await startGeneration(hubRef.current, model, prompt)
   }
 
   return (

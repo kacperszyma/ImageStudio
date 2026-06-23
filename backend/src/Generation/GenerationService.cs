@@ -1,4 +1,5 @@
 using Generation.Contracts;
+using Microsoft.EntityFrameworkCore;
 
 namespace Generation;
 
@@ -10,9 +11,9 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
     public long GetCost(string modelSlug) =>
         ImageModel.FromString(modelSlug).CreditCost;
 
-    public async Task<GenerationJobDto> RunAsync(Guid jobId, Guid userId, string modelSlug, string prompt)
+    public async Task<string> SubmitAsync(Guid userId, string modelSlug, string prompt)
     {
-        var imageUrl = await provider.SubmitJobAsync(jobId, modelSlug, prompt);
+        var requestId = await provider.SubmitJobAsync(modelSlug, prompt);
 
         db.Generations.Add(new GenerationInstance
         {
@@ -20,15 +21,31 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
             UserId = userId,
             ImageModel = modelSlug,
             Prompt = prompt,
-            ResultUrl = imageUrl
+            FalRequestId = requestId,
+            // ResultUrl stays null until the provider's callback arrives.
         });
-        var result = await db.SaveChangesAsync();
+        await db.SaveChangesAsync();
 
-        return new GenerationJobDto(jobId, imageUrl);
+        return requestId;
+    }
+
+    public GenerationCallback ParseCallback(byte[] body) => provider.ParseCallback(body);
+
+    public async Task CompleteGenerationAsync(string requestId, string imageUrl)
+    {
+        var generation = await db.Generations.FirstOrDefaultAsync(g => g.FalRequestId == requestId);
+        if (generation is null || generation.ResultUrl is not null)
+            return; // unknown or already recorded — idempotent against webhook retries
+
+        generation.ResultUrl = imageUrl;
+        await db.SaveChangesAsync();
     }
 
     public async Task<IReadOnlyCollection<GenerationDetails>> GetGenerationHistory(Guid userId)
     {
-        return db.Generations.Where(g => g.UserId == userId).Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl)).ToList();
+        return await db.Generations
+            .Where(g => g.UserId == userId)
+            .Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl))
+            .ToListAsync();
     }
 }
