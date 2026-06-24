@@ -1,3 +1,5 @@
+using SharedKernel;
+
 namespace Generation.Contracts;
 
 public interface IGenerationService
@@ -7,11 +9,14 @@ public interface IGenerationService
     Task<string> SubmitAsync(Guid userId, string modelSlug, string prompt);
 
     /// <summary>
-    /// Decodes a provider's raw webhook body into a provider-agnostic result.
-    /// The host hands over the raw bytes; the provider's wire format never
-    /// crosses this boundary.
+    /// Verifies a provider's webhook is authentic, then decodes it into a
+    /// provider-agnostic result. The host hands over the raw request; the
+    /// provider's wire format and signature scheme never cross this boundary.
+    /// Verification is fused with decoding so an unverified body can never
+    /// produce a <see cref="GenerationCallback"/>.
     /// </summary>
-    GenerationCallback ParseCallback(byte[] body);
+    /// <exception cref="WebhookVerificationException">The webhook is not authentic.</exception>
+    Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request);
 
     /// <summary>Records the produced image against its generation (by request id).</summary>
     Task CompleteGenerationAsync(string requestId, string imageUrl);

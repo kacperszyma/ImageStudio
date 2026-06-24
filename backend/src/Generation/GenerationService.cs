@@ -1,5 +1,6 @@
 using Generation.Contracts;
 using Microsoft.EntityFrameworkCore;
+using SharedKernel;
 
 namespace Generation;
 
@@ -29,7 +30,8 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
         return requestId;
     }
 
-    public GenerationCallback ParseCallback(byte[] body) => provider.ParseCallback(body);
+    public Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request) =>
+        provider.ParseCallbackAsync(request);
 
     public async Task CompleteGenerationAsync(string requestId, string imageUrl)
     {

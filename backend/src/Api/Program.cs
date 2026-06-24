@@ -3,6 +3,7 @@ using Users;
 using Generation;
 using GenerationManager;
 using Generation.Contracts;
+using SharedKernel;
 using Api.Middleware;
 using Api.Hubs;
 using GenerationManager.Contracts;
@@ -80,12 +81,28 @@ app.MapPost(falWebhookPath, async (
     IGenerationService generationService,
     IGenerationManager generationManager) =>
 {
-    // The host owns the web framework: pull the raw bytes off the request and
-    // hand them to Generation, which owns the provider's wire format.
+    // The host owns the web framework: pull the raw bytes and headers off the
+    // request into a transport-neutral envelope, then hand it to Generation,
+    // which owns the provider's wire format and signature scheme.
     using var buffer = new MemoryStream();
     await request.Body.CopyToAsync(buffer);
 
-    var callback = generationService.ParseCallback(buffer.ToArray());
+    var headers = request.Headers.ToDictionary(
+        h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+    var webhook = new WebhookRequest(buffer.ToArray(), headers);
+
+    GenerationCallback callback;
+    try
+    {
+        callback = await generationService.ParseCallbackAsync(webhook);
+    }
+    catch (WebhookVerificationException)
+    {
+        // Not authentic: reject and process nothing. Don't 200 — a forged
+        // request is not an "already handled" one.
+        return Results.Unauthorized();
+    }
+
     await generationManager.CompleteJobAsync(callback.RequestId, callback.ImageUrl, callback.Success);
 
     // Always 200 so Fal stops retrying; CompleteJobAsync is idempotent anyway.

@@ -14,6 +14,8 @@ public static class GenerationModule
         services.AddDbContext<GenerationDbContext>(opt =>
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
         services.AddHttpClient<FalClient>();
+        services.AddHttpClient(); // IHttpClientFactory for the verifier's JWKS fetch
+        services.AddSingleton<FalWebhookVerifier>(); // caches Fal's public keys
         services.AddScoped<IGenerationProvider,FalGenerationProvider>();
        // services.AddScoped<IGenerationProvider, MockGenerationProvider>();
         services.AddScoped<IGenerationService, GenerationService>();

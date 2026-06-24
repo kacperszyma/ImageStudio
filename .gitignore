@@ -42,3 +42,7 @@ coverage/
 # ---- Docker / local data ----
 .pgdata/
 *.log
+
+# ---- Python (tools/fake-fal) ----
+__pycache__/
+*.py[cod]

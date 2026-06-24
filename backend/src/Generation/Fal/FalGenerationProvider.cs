@@ -1,9 +1,11 @@
 using System.Text.Json;
 using Generation.Contracts;
+using SharedKernel;
 
 namespace Generation.Fal;
 
-internal sealed class FalGenerationProvider(FalClient falClient) : IGenerationProvider
+internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerifier verifier)
+    : IGenerationProvider
 {
     public async Task<string> SubmitJobAsync(string modelSlug, string prompt)
     {
@@ -13,9 +15,15 @@ internal sealed class FalGenerationProvider(FalClient falClient) : IGenerationPr
         return enqueued.RequestId;
     }
 
-    public GenerationCallback ParseCallback(byte[] body)
+    public async Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request)
     {
-        // TODO: verify X-Fal-Webhook-Signature over `body` before trusting it.
+        // Verify before decode so an unverified body can never become a callback.
+        await verifier.VerifyAsync(request);
+        return Decode(request.Body);
+    }
+
+    private static GenerationCallback Decode(byte[] body)
+    {
         var payload = JsonSerializer.Deserialize<FalWebhookPayload>(body)
             ?? throw new InvalidOperationException("Empty Fal webhook body.");
 

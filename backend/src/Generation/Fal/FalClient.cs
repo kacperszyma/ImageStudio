@@ -16,7 +16,8 @@ internal sealed class FalClient
     public FalClient(HttpClient httpClient, IConfiguration config)
     {
         _httpClient = httpClient;
-        _httpClient.BaseAddress = new Uri("https://queue.fal.run/");
+        // Defaults to real Fal; point at a local fake-Fal server for E2E testing.
+        _httpClient.BaseAddress = new Uri(config["FAL_QUEUE_URL"] ?? "https://queue.fal.run/");
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Key {config["FAL_API_KEY"]}");
         _webhookUrl = config["FAL_WEBHOOK_URL"]
             ?? throw new InvalidOperationException("FAL_WEBHOOK_URL is not configured.");

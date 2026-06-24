@@ -1,0 +1,11 @@
+flask
+requests
+cryptography
+# Stable Diffusion 1.5. torch wheels are platform/CUDA specific — if the default
+# index gives you a CPU-only or mismatched build, install torch first from
+# https://pytorch.org/get-started/locally/ then `pip install -r requirements.txt`.
+torch
+diffusers
+transformers
+accelerate
+Pillow

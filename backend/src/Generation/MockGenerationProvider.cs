@@ -1,5 +1,6 @@
 namespace Generation;
 using Generation.Contracts;
+using SharedKernel;
 
 internal sealed class MockGenerationProvider : IGenerationProvider
 {
@@ -9,6 +10,6 @@ internal sealed class MockGenerationProvider : IGenerationProvider
         return "mock-id";
     }
 
-    public GenerationCallback ParseCallback(byte[] body) =>
+    public Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request) =>
         throw new NotSupportedException("The mock provider completes synchronously and has no webhook callback.");
 }
