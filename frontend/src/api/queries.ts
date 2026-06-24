@@ -17,7 +17,8 @@ export type ImageModel = { slug: string; creditCost: number }
 export type GenerationDetails = {
     modelSlug: string
     prompt: string
-    imageUrl: string
+    imageUrl: string | null
+    creditCost: number
 }
 
 export type TransactionDto = {

@@ -23,6 +23,7 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
             ImageModel = modelSlug,
             Prompt = prompt,
             FalRequestId = requestId,
+            CreditCost = ImageModel.FromString(modelSlug).CreditCost,
             // ResultUrl stays null until the provider's callback arrives.
         });
         await db.SaveChangesAsync();
@@ -47,7 +48,7 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
     {
         return await db.Generations
             .Where(g => g.UserId == userId)
-            .Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl))
+            .Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl, g.CreditCost))
             .ToListAsync();
     }
 }

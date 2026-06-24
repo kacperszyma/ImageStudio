@@ -26,4 +26,4 @@ public interface IGenerationService
 
 public record ModelDto(string Slug, long CreditCost);
 public record GenerationCallback(string RequestId, bool Success, string? ImageUrl);
-public record GenerationDetails(string modelSlug, string prompt, string? imageUrl);
+public record GenerationDetails(string modelSlug, string prompt, string? imageUrl, long creditCost);

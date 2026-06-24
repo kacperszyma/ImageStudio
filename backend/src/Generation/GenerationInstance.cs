@@ -10,6 +10,8 @@ internal sealed class GenerationInstance
     /// <summary>Provider request id; correlates the webhook callback to this row.</summary>
     public string? FalRequestId { get; set; }
 
+    public long CreditCost { get; set; }
+
     /// <summary>Null until the generation completes and the image is recorded.</summary>
     public string? ResultUrl { get; set; }
 }

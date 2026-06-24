@@ -6,7 +6,7 @@ import { GetBalance, GetTransactions, GetHistory, type TransactionDto, type Gene
 import { Layout } from "@/components/Layout"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Stone, ArrowUpRight, Zap } from "lucide-react"
+import { Stone, ArrowUpRight, Zap, CreditCard } from "lucide-react"
 import {
   ChartContainer,
   ChartTooltip,
@@ -18,40 +18,43 @@ function txEffect(tx: TransactionDto): number {
   return tx.type === "TopUp" || tx.type === "Unfreeze" ? tx.amount : -tx.amount
 }
 
-function txLabel(type: TransactionDto["type"]) {
+function spendLabel(type: TransactionDto["type"]) {
   switch (type) {
-    case "TopUp": return "Top-up"
     case "Freeze": return "Reserved"
     case "Charge": return "Charged"
     case "Unfreeze": return "Refunded"
+    default: return type
   }
 }
 
-function txAmountClass(type: TransactionDto["type"]) {
-  return type === "TopUp" || type === "Unfreeze" ? "text-green-500" : "text-destructive"
+function spendAmountClass(type: TransactionDto["type"]) {
+  return type === "Unfreeze" ? "text-green-500" : "text-destructive"
 }
 
-function txPrefix(type: TransactionDto["type"]) {
-  return type === "TopUp" || type === "Unfreeze" ? "+" : ""
-}
-
-function buildChartData(transactions: TransactionDto[]) {
+function buildChartData(transactions: TransactionDto[], currentBalance: number) {
   const sorted = [...transactions].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   )
-  let running = 0
-  return sorted.map((tx) => {
-    running += txEffect(tx)
-    return {
+  const points: { date: string; balance: number }[] = []
+  let running = currentBalance
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const tx = sorted[i]
+    points.unshift({
       date: new Date(tx.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
       balance: running,
-    }
-  })
+    })
+    running -= txEffect(tx)
+  }
+  return points
 }
 
 const chartConfig = {
   balance: { label: "Balance", color: "var(--color-primary)" },
 } satisfies ChartConfig
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
 
 export default function TokenPage() {
   const { getAccessTokenSilently } = useAuth0()
@@ -71,8 +74,20 @@ export default function TokenPage() {
     queryFn: () => GetHistory(getAccessTokenSilently),
   })
 
-  const chartData = transactions ? buildChartData(transactions) : []
+  const chartData = transactions ? buildChartData(transactions, balance ?? 0) : []
   const recentImages = history?.slice(-4).reverse() ?? []
+
+  const purchases = transactions
+    ? [...transactions]
+        .filter(tx => tx.type === "TopUp")
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : []
+
+  const spends = transactions
+    ? [...transactions]
+        .filter(tx => tx.type !== "TopUp")
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : []
 
   return (
     <Layout>
@@ -80,7 +95,6 @@ export default function TokenPage() {
 
         {/* Top row */}
         <div className="grid grid-cols-3 gap-4">
-          {/* Chart */}
           <div className="col-span-2 border border-border rounded-xl p-4 flex flex-col gap-3">
             <span className="text-sm font-medium">Balance over time</span>
             {txLoading ? (
@@ -119,7 +133,6 @@ export default function TokenPage() {
             )}
           </div>
 
-          {/* Balance */}
           <div className="border border-border rounded-xl p-6 flex flex-col items-center justify-center gap-3">
             {balanceLoading ? (
               <Skeleton className="h-14 w-28" />
@@ -138,51 +151,88 @@ export default function TokenPage() {
         </div>
 
         {/* Bottom row */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Transaction list */}
+        <div className="grid grid-cols-3 gap-4">
+
+          {/* Purchase history */}
           <div className="border border-border rounded-xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-border">
-              <span className="text-sm font-medium">Transactions</span>
+            <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+              <CreditCard size={14} className="text-muted-foreground" />
+              <span className="text-sm font-medium">Purchases</span>
             </div>
 
             {txLoading && (
               <div className="divide-y divide-border">
-                {Array.from({ length: 4 }).map((_, i) => (
+                {Array.from({ length: 3 }).map((_, i) => (
                   <div key={i} className="px-4 py-3 flex justify-between items-center">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-14" />
                   </div>
                 ))}
               </div>
             )}
 
-            {!txLoading && (!transactions || transactions.length === 0) && (
+            {!txLoading && purchases.length === 0 && (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No transactions yet.
+                No purchases yet.
               </div>
             )}
 
-            {transactions && transactions.length > 0 && (
+            {purchases.length > 0 && (
               <div className="divide-y divide-border">
-                {[...transactions]
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .map((tx) => (
-                    <div key={tx.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                      <div className="flex flex-col gap-0.5">
-                        <span>{txLabel(tx.type)}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(tx.createdAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      <span className={`font-medium tabular-nums ${txAmountClass(tx.type)}`}>
-                        {txPrefix(tx.type)}{tx.amount}
-                      </span>
+                {purchases.map((tx) => (
+                  <div key={tx.id} className="px-4 py-3 flex items-center justify-between text-sm">
+                    <div className="flex flex-col gap-0.5">
+                      <span>Top-up</span>
+                      <span className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</span>
                     </div>
-                  ))}
+                    <span className="font-medium tabular-nums text-green-500 flex items-center gap-1">
+                      +{tx.amount}
+                      <Stone size={11} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Spend history */}
+          <div className="border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-border flex items-center gap-2">
+              <Stone size={14} className="text-muted-foreground" />
+              <span className="text-sm font-medium">Spend history</span>
+            </div>
+
+            {txLoading && (
+              <div className="divide-y divide-border">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 flex justify-between items-center">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-14" />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!txLoading && spends.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                Nothing spent yet.
+              </div>
+            )}
+
+            {spends.length > 0 && (
+              <div className="divide-y divide-border">
+                {spends.map((tx) => (
+                  <div key={tx.id} className="px-4 py-3 flex items-center justify-between text-sm">
+                    <div className="flex flex-col gap-0.5">
+                      <span>{spendLabel(tx.type)}</span>
+                      <span className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</span>
+                    </div>
+                    <span className={`font-medium tabular-nums flex items-center gap-1 ${spendAmountClass(tx.type)}`}>
+                      {tx.type === "Unfreeze" ? "+" : ""}{tx.amount}
+                      <Stone size={11} />
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -200,7 +250,7 @@ export default function TokenPage() {
             </div>
 
             {historyLoading && (
-              <div className="grid grid-cols-4 gap-2 p-3">
+              <div className="grid grid-cols-2 gap-2 p-3">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <Skeleton key={i} className="aspect-square rounded-lg" />
                 ))}
@@ -214,20 +264,23 @@ export default function TokenPage() {
             )}
 
             {recentImages.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 p-3">
+              <div className="grid grid-cols-2 gap-2 p-3">
                 {recentImages.map((img, i) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={img.imageUrl}
-                      alt={img.prompt}
-                      className="w-full h-full object-cover"
-                      title={img.prompt}
-                    />
+                    {img.imageUrl && (
+                      <img
+                        src={img.imageUrl}
+                        alt={img.prompt}
+                        className="w-full h-full object-cover"
+                        title={img.prompt}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
+
         </div>
 
       </div>
