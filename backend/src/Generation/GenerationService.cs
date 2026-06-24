@@ -51,4 +51,18 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
             .Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl, g.CreditCost))
             .ToListAsync();
     }
+
+    public async Task<GenerationSummary?> GetDetailsByRequestIdAsync(string falRequestId)
+    {
+        var g = await db.Generations.FirstOrDefaultAsync(g => g.FalRequestId == falRequestId);
+        return g is null ? null : new GenerationSummary(g.ImageModel, g.Prompt, g.ResultUrl, g.CreditCost);
+    }
+
+    public async Task<IReadOnlyDictionary<string, GenerationSummary>> GetSummariesByRequestIdsAsync(IEnumerable<string> falRequestIds)
+    {
+        var ids = falRequestIds.ToList();
+        return await db.Generations
+            .Where(g => g.FalRequestId != null && ids.Contains(g.FalRequestId!))
+            .ToDictionaryAsync(g => g.FalRequestId!, g => new GenerationSummary(g.ImageModel, g.Prompt, g.ResultUrl, g.CreditCost));
+    }
 }

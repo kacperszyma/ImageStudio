@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useAuth0 } from "@auth0/auth0-react"
+import { Link } from "react-router"
 import { GetHistory, type GenerationDetails } from "@/api/queries"
 import { Layout } from "@/components/Layout"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -7,7 +8,10 @@ import { ImageIcon, Stone } from "lucide-react"
 
 function GenerationCard({ item }: { item: GenerationDetails }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
+    <Link
+      to={`/generations/${item.jobId}`}
+      className="rounded-xl border border-border bg-card overflow-hidden flex flex-col hover:border-foreground/20 transition-colors"
+    >
       <div className="aspect-[4/3] bg-muted overflow-hidden">
         {item.imageUrl ? (
           <img
@@ -37,7 +41,7 @@ function GenerationCard({ item }: { item: GenerationDetails }) {
 
         <span className="text-[10px] text-muted-foreground">{item.modelSlug}</span>
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -87,8 +91,8 @@ export default function HistoryPage() {
 
         {history && history.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {history.map((item, i) => (
-              <GenerationCard key={i} item={item} />
+            {history.map((item) => (
+              <GenerationCard key={item.jobId} item={item} />
             ))}
           </div>
         )}

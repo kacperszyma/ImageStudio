@@ -22,8 +22,11 @@ public interface IGenerationService
     Task CompleteGenerationAsync(string requestId, string imageUrl);
 
     Task<IReadOnlyCollection<GenerationDetails>> GetGenerationHistory(Guid userId);
+    Task<GenerationSummary?> GetDetailsByRequestIdAsync(string falRequestId);
+    Task<IReadOnlyDictionary<string, GenerationSummary>> GetSummariesByRequestIdsAsync(IEnumerable<string> falRequestIds);
 }
 
 public record ModelDto(string Slug, long CreditCost);
 public record GenerationCallback(string RequestId, bool Success, string? ImageUrl);
 public record GenerationDetails(string modelSlug, string prompt, string? imageUrl, long creditCost);
+public record GenerationSummary(string ModelSlug, string Prompt, string? ImageUrl, long CreditCost);

@@ -18,14 +18,6 @@ function txEffect(tx: TransactionDto): number {
   return tx.type === "TopUp" || tx.type === "Unfreeze" ? tx.amount : -tx.amount
 }
 
-function spendLabel(type: TransactionDto["type"]) {
-  switch (type) {
-    case "Freeze": return "Reserved"
-    case "Charge": return "Charged"
-    case "Unfreeze": return "Refunded"
-    default: return type
-  }
-}
 
 function spendAmountClass(type: TransactionDto["type"]) {
   return type === "Unfreeze" ? "text-green-500" : "text-destructive"
@@ -222,16 +214,17 @@ export default function TokenPage() {
             {spends.length > 0 && (
               <div className="divide-y divide-border">
                 {spends.map((tx) => (
-                  <div key={tx.id} className="px-4 py-3 flex items-center justify-between text-sm">
-                    <div className="flex flex-col gap-0.5">
-                      <span>{spendLabel(tx.type)}</span>
-                      <span className="text-xs text-muted-foreground">{formatDate(tx.createdAt)}</span>
-                    </div>
+                  <Link
+                    key={tx.id}
+                    to={`/transactions/${tx.id}`}
+                    className="px-4 py-3 flex items-center justify-between text-sm transition-colors hover:bg-muted/60 hover:shadow-[inset_0_0_0_1px_hsl(var(--border))]"
+                  >
+                    <span className="text-muted-foreground">{formatDate(tx.createdAt)}</span>
                     <span className={`font-medium tabular-nums flex items-center gap-1 ${spendAmountClass(tx.type)}`}>
                       {tx.type === "Unfreeze" ? "+" : ""}{tx.amount}
                       <Stone size={11} />
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -265,8 +258,12 @@ export default function TokenPage() {
 
             {recentImages.length > 0 && (
               <div className="grid grid-cols-2 gap-2 p-3">
-                {recentImages.map((img, i) => (
-                  <div key={i} className="aspect-square rounded-lg overflow-hidden bg-muted">
+                {recentImages.map((img) => (
+                  <Link
+                    key={img.jobId}
+                    to={`/generations/${img.jobId}`}
+                    className="aspect-square rounded-lg overflow-hidden bg-muted block relative group"
+                  >
                     {img.imageUrl && (
                       <img
                         src={img.imageUrl}
@@ -275,7 +272,8 @@ export default function TokenPage() {
                         title={img.prompt}
                       />
                     )}
-                  </div>
+                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </Link>
                 ))}
               </div>
             )}

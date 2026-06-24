@@ -119,16 +119,34 @@ app.MapGet("/balance", async (HttpContext ctx, IWalletService walletService) =>
     return Results.Ok(await walletService.GetBalanceAsync(userId));
 }).RequireAuthorization();
 
-app.MapGet("/history", async (HttpContext ctx, IGenerationService generationService) =>
+app.MapGet("/history", async (HttpContext ctx, IGenerationManager generationManager) =>
 {
     var userId = (Guid)ctx.Items["UserId"]!;
-    return Results.Ok(await generationService.GetGenerationHistory(userId));
+    return Results.Ok(await generationManager.GetHistoryAsync(userId));
 }).RequireAuthorization();
+
+app.MapGet("/history/{id:guid}", (Guid id) => Results.Redirect($"/generations/{id}"))
+    .RequireAuthorization();
 
 app.MapGet("/transactions", async (HttpContext ctx, IWalletService walletService) =>
 {
     var userId = (Guid)ctx.Items["UserId"]!;
     return Results.Ok(await walletService.GetTransactionsAsync(userId));
+}).RequireAuthorization();
+
+app.MapGet("/transactions/{id:guid}", async (Guid id, IWalletService walletService) =>
+{
+    var tx = await walletService.GetTransactionAsync(id);
+    if (tx is null) return Results.NotFound();
+    if (tx.GenerationJobId is { } jobId)
+        return Results.Redirect($"/generations/{jobId}");
+    return Results.Ok(tx);
+}).RequireAuthorization();
+
+app.MapGet("/generations/{id:guid}", async (Guid id, IGenerationManager generationManager) =>
+{
+    var details = await generationManager.GetDetailsAsync(id);
+    return details is null ? Results.NotFound() : Results.Ok(details);
 }).RequireAuthorization();
 
 app.Run();

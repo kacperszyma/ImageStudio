@@ -5,6 +5,8 @@ import HistoryPage from "@/pages/history/HistoryPage"
 import ProfilePage from "@/pages/profile/ProfilePage"
 import TokenPage from "@/pages/tokens/TokenPage"
 import BuyPage from "@/pages/tokens/BuyPage"
+import GenerationDetailPage from "@/pages/generations/GenerationDetailPage"
+import TransactionDetailPage from "@/pages/transactions/TransactionDetailPage"
 import { Auth0Provider } from "@auth0/auth0-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -27,6 +29,8 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/tokens" element={<TokenPage />} />
             <Route path="/tokens/buy" element={<BuyPage />} />
+            <Route path="/generations/:id" element={<GenerationDetailPage />} />
+            <Route path="/transactions/:id" element={<TransactionDetailPage />} />
           </Routes>
         </Auth0Provider>
       </TooltipProvider>

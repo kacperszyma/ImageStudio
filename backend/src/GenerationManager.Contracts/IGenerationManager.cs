@@ -15,4 +15,29 @@ public interface IGenerationManager
     /// Idempotent — safe to call again for the provider's webhook retries.
     /// </summary>
     Task CompleteJobAsync(string requestId, string? imageUrl, bool success);
+
+    Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId);
+    Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId);
 }
+
+public record GenerationHistoryItem(
+    Guid JobId,
+    string? ModelSlug,
+    string? Prompt,
+    string? ImageUrl,
+    long? CreditCost,
+    string Status,
+    DateTime CreatedAt);
+
+public record GenerationDetailDto(
+    Guid JobId,
+    string? ModelSlug,
+    string? Prompt,
+    string? ImageUrl,
+    long? CreditCost,
+    string Status,
+    DateTime CreatedAt,
+    DateTime? CompletedAt,
+    TimeSpan? Duration,
+    long? BalanceBefore,
+    long? BalanceAfter);

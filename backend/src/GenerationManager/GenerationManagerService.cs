@@ -79,4 +79,54 @@ internal sealed class GenerationManagerService(
             await notifier.FailedAsync(job.UserId, job.Id);
         }
     }
+
+    public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId)
+    {
+        var jobs = await db.Jobs
+            .Where(j => j.UserId == userId)
+            .OrderByDescending(j => j.CreatedAt)
+            .ToListAsync();
+
+        var requestIds = jobs
+            .Where(j => j.FalRequestId is not null)
+            .Select(j => j.FalRequestId!)
+            .ToList();
+
+        var summaries = await generationService.GetSummariesByRequestIdsAsync(requestIds);
+
+        return jobs.Select(j =>
+        {
+            summaries.TryGetValue(j.FalRequestId ?? "", out var s);
+            return new GenerationHistoryItem(j.Id, s?.ModelSlug, s?.Prompt, s?.ImageUrl, s?.CreditCost, j.Status.ToString(), j.CreatedAt);
+        }).ToList();
+    }
+
+    public async Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId)
+    {
+        var job = await db.Jobs.FirstOrDefaultAsync(j => j.Id == jobId);
+        if (job is null) return null;
+
+        GenerationSummary? summary = null;
+        if (job.FalRequestId is not null)
+            summary = await generationService.GetDetailsByRequestIdAsync(job.FalRequestId);
+
+        var walletDetails = await walletService.GetGenerationWalletDetailsAsync(jobId);
+
+        var duration = job.CompletedAt.HasValue
+            ? job.CompletedAt.Value - job.CreatedAt
+            : (TimeSpan?)null;
+
+        return new GenerationDetailDto(
+            JobId: jobId,
+            ModelSlug: summary?.ModelSlug,
+            Prompt: summary?.Prompt,
+            ImageUrl: summary?.ImageUrl,
+            CreditCost: summary?.CreditCost,
+            Status: job.Status.ToString(),
+            CreatedAt: job.CreatedAt,
+            CompletedAt: job.CompletedAt,
+            Duration: duration,
+            BalanceBefore: walletDetails?.BalanceBefore,
+            BalanceAfter: walletDetails?.BalanceAfter);
+    }
 }

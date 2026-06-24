@@ -212,6 +212,34 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
             .Select(l => new TransactionDto(l.Id, l.WalletId, l.Amount, l.Type, l.CreatedAt))
             .ToListAsync();
 
+    public async Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId)
+    {
+        var entry = await db.Ledger.FirstOrDefaultAsync(l => l.Id == transactionId);
+        if (entry is null) return null;
+
+        Guid? generationJobId = null;
+        if (entry.Type == TransactionType.Charge &&
+            entry.IdempotencyKey.StartsWith("charge_") &&
+            Guid.TryParse(entry.IdempotencyKey["charge_".Length..], out var holdId))
+        {
+            var hold = await db.Holds.FirstOrDefaultAsync(h => h.Id == holdId);
+            generationJobId = hold?.PurchaseId;
+        }
+
+        return new TransactionDetailDto(entry.Id, entry.WalletId, entry.Amount, entry.Type, entry.CreatedAt, generationJobId);
+    }
+
+    public async Task<GenerationWalletDetails?> GetGenerationWalletDetailsAsync(Guid jobId)
+    {
+        var freeze = await db.Ledger.FirstOrDefaultAsync(
+            l => l.IdempotencyKey == jobId.ToString() && l.Type == TransactionType.Freeze);
+        if (freeze is null) return null;
+
+        return new GenerationWalletDetails(
+            BalanceBefore: freeze.BalanceAfter + freeze.Amount,
+            BalanceAfter: freeze.BalanceAfter);
+    }
+
     // Locks the wallet row for the duration of the transaction (SELECT ... FOR UPDATE);
     // EF has no first-class API for row locks, so this uses raw SQL.
     private Task<WalletAccount> LockWalletAsync(Guid userId) =>
