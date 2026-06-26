@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using SharedKernel;
 using Wallet.Contracts;
 using System.Data;
 using Npgsql;
 
 namespace Wallet;
 
-internal sealed class WalletService(WalletDbContext db) : IWalletService
+internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentGateway) : IWalletService
 {
     private const string HoldActive = "active";
     private const string HoldReleased = "released";
@@ -167,7 +168,7 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
         }
     }
 
-    public async Task TopUpAsync(Guid userId, long amount, string idempotencyKey)
+    public async Task TopUpAsync(Guid userId, long amount, string idempotencyKey, Guid? purchaseId = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
 
@@ -189,6 +190,7 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
                 Type = TransactionType.TopUp,
                 BalanceAfter = wallet.Balance,
                 IdempotencyKey = idempotencyKey,
+                PurchaseId = purchaseId,
             });
 
             await db.SaveChangesAsync();
@@ -205,12 +207,58 @@ internal sealed class WalletService(WalletDbContext db) : IWalletService
         }
     }
 
-    public async Task<IReadOnlyList<TransactionDto>> GetTransactionsAsync(Guid userId) =>
+    public List<PackageOfferDto> GetPackages() =>
+        PebblePackage.All.Select(p => new PackageOfferDto(p.NameId,p.DollarPrice,p.PebbleAmount,p.DisountRate)).ToList();
+    
+
+    public async Task<IReadOnlyList<TransactionDto>> GetSpendingHistoryAsync(Guid userId) =>
         await db.Ledger
             .Where(l => l.WalletId == userId && l.Type == TransactionType.Charge)
             .OrderByDescending(l => l.CreatedAt)
             .Select(l => new TransactionDto(l.Id, l.WalletId, l.Amount, l.Type, l.CreatedAt))
             .ToListAsync();
+
+    public async Task<IReadOnlyList<PurchaseDto>> GetPurchasesAsync(Guid userId) =>
+        await db.Purchases
+            .Where(p => p.UserId == userId)
+            .OrderByDescending(p => p.CreatedAt)
+            .Select(p => new PurchaseDto(p.Id, p.PackageNameId, p.DollarAmount, p.PebbleAmount, p.CreatedAt))
+            .ToListAsync();
+
+    public bool VerifyPaymentWebhook(string payload, string signature) =>
+        paymentGateway.VerifyWebhookSignature(payload, signature);
+
+    public Task<string> CreateCheckoutAsync(Guid userId, string packageId) =>
+        paymentGateway.CreateCheckoutSessionAsync(userId, packageId);
+
+    public async Task ProcessPaymentWebhookAsync(string payload, string signature)
+    {
+        if (!paymentGateway.VerifyWebhookSignature(payload, signature))
+            throw new WebhookVerificationException("Invalid Stripe webhook signature.");
+
+        var evt = paymentGateway.ParseCheckoutCompleted(payload);
+        if (evt is null) return; // unhandled event type — not an error
+
+        var package = PebblePackage.FromName(evt.PackageId);
+
+        if (await db.Purchases.AnyAsync(p => p.ExternalPaymentId == evt.SessionId))
+            return; // already processed — idempotent against Stripe retries
+
+        var purchase = new WalletPurchase
+        {
+            Id = Guid.NewGuid(),
+            UserId = evt.UserId,
+            PackageNameId = evt.PackageId,
+            DollarAmount = package.DollarPrice,
+            PebbleAmount = (long)package.PebbleAmount,
+            ExternalPaymentId = evt.SessionId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Purchases.Add(purchase);
+        await db.SaveChangesAsync();
+
+        await TopUpAsync(evt.UserId, (long)package.PebbleAmount, evt.SessionId, purchase.Id);
+    }
 
     public async Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId)
     {

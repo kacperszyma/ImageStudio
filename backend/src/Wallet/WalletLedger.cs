@@ -19,5 +19,8 @@ internal class WalletLedger
 
     public Guid WalletId { get; set; }
 
+    public Guid? PurchaseId { get; set; }
+
     public WalletAccount? Wallet { get; set; } = null;
+    public WalletPurchase? Purchase { get; set; } = null;
 }

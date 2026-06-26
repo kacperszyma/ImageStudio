@@ -226,15 +226,21 @@ public class WalletServiceTests(WalletDbFixture db)
     // ── GetTransactions ──────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetTransactions_returns_entries_newest_first()
+    public async Task GetSpendingHistory_returns_charges_newest_first()
     {
         var userId = Guid.NewGuid();
-        await db.CreateService().EnsureAccountAsync(userId);
+        var svc = db.CreateService();
+        await svc.EnsureAccountAsync(userId);
+        await svc.TopUpAsync(userId, 500, "spend-topup");
 
-        await db.CreateService().TopUpAsync(userId, 100, "tx-order-1");
-        await db.CreateService().TopUpAsync(userId, 200, "tx-order-2");
+        var job1 = Guid.NewGuid();
+        var job2 = Guid.NewGuid();
+        await svc.FreezeFundsAsync(userId, 100, job1, job1.ToString());
+        await svc.FreezeFundsAsync(userId, 200, job2, job2.ToString());
+        await svc.ChargeFrozenAsync(job1);
+        await svc.ChargeFrozenAsync(job2);
 
-        var txns = await db.CreateService().GetTransactionsAsync(userId);
+        var txns = await db.CreateService().GetSpendingHistoryAsync(userId);
         txns.Should().HaveCount(2);
         txns[0].Amount.Should().Be(200); // newest first
         txns[1].Amount.Should().Be(100);

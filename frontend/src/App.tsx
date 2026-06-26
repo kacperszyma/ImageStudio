@@ -5,6 +5,9 @@ import HistoryPage from "@/pages/history/HistoryPage"
 import ProfilePage from "@/pages/profile/ProfilePage"
 import TokenPage from "@/pages/tokens/TokenPage"
 import BuyPage from "@/pages/tokens/BuyPage"
+import CheckoutPage from "@/pages/tokens/CheckoutPage"
+import CompletePage from "@/pages/tokens/CompletePage"
+import BillingPage from "@/pages/billing/BillingPage"
 import GenerationDetailPage from "@/pages/generations/GenerationDetailPage"
 import TransactionDetailPage from "@/pages/transactions/TransactionDetailPage"
 import { Auth0Provider } from "@auth0/auth0-react";
@@ -29,6 +32,9 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/tokens" element={<TokenPage />} />
             <Route path="/tokens/buy" element={<BuyPage />} />
+            <Route path="/tokens/checkout/:packageId" element={<CheckoutPage />} />
+            <Route path="/tokens/complete" element={<CompletePage />} />
+            <Route path="/billing" element={<BillingPage />} />
             <Route path="/generations/:id" element={<GenerationDetailPage />} />
             <Route path="/transactions/:id" element={<TransactionDetailPage />} />
           </Routes>

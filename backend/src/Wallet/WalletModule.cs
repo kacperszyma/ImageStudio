@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Wallet.Contracts;
-using Wallet.Stripe;
+using Wallet.StripeGateway;
 
 namespace Wallet;
 

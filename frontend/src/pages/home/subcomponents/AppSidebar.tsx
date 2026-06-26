@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { NavUser } from "@/components/nav-user"
-import { Stone, Wand2, Clock, Plus } from "lucide-react"
+import { Stone, Wand2, Clock, Plus, CreditCard } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth0 } from "@auth0/auth0-react"
 import { GetBalance } from "@/api/queries"
@@ -21,6 +21,7 @@ const navItems = [
   { label: "Generate", href: "/", icon: <Wand2 size={16} /> },
   { label: "History", href: "/history", icon: <Clock size={16} /> },
   { label: "Tokens", href: "/tokens", icon: <Stone size={16} /> },
+  { label: "Billing", href: "/billing", icon: <CreditCard size={16} /> },
 ]
 
 export function AppSidebar() {

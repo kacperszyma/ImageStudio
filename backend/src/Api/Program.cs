@@ -81,15 +81,7 @@ app.MapPost(falWebhookPath, async (
     IGenerationService generationService,
     IGenerationManager generationManager) =>
 {
-    // The host owns the web framework: pull the raw bytes and headers off the
-    // request into a transport-neutral envelope, then hand it to Generation,
-    // which owns the provider's wire format and signature scheme.
-    using var buffer = new MemoryStream();
-    await request.Body.CopyToAsync(buffer);
-
-    var headers = request.Headers.ToDictionary(
-        h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase);
-    var webhook = new WebhookRequest(buffer.ToArray(), headers);
+    WebhookRequest webhook = await ExtractWebhook(request);
 
     GenerationCallback callback;
     try
@@ -106,6 +98,25 @@ app.MapPost(falWebhookPath, async (
     await generationManager.CompleteJobAsync(callback.RequestId, callback.ImageUrl, callback.Success);
 
     // Always 200 so Fal stops retrying; CompleteJobAsync is idempotent anyway.
+    return Results.Ok();
+});
+
+app.MapPost("stripe/webhook", async (HttpRequest request, IWalletService walletService) =>
+{
+    WebhookRequest webhook = await ExtractWebhook(request);
+
+    var signature = request.Headers["Stripe-Signature"].ToString();
+    var payload = System.Text.Encoding.UTF8.GetString(webhook.Body);
+
+    try
+    {
+        await walletService.ProcessPaymentWebhookAsync(payload, signature);
+    }
+    catch (WebhookVerificationException)
+    {
+        return Results.Unauthorized();
+    }
+
     return Results.Ok();
 });
 
@@ -128,19 +139,37 @@ app.MapGet("/history", async (HttpContext ctx, IGenerationManager generationMana
 app.MapGet("/history/{id:guid}", (Guid id) => Results.Redirect($"/generations/{id}"))
     .RequireAuthorization();
 
-app.MapGet("/transactions", async (HttpContext ctx, IWalletService walletService) =>
+app.MapGet("/packages", (IWalletService walletService) =>
+{
+    return Results.Ok(walletService.GetPackages());
+});
+
+app.MapPost("/checkout", async (HttpContext ctx, IWalletService walletService, CheckoutRequest body) =>
 {
     var userId = (Guid)ctx.Items["UserId"]!;
-    return Results.Ok(await walletService.GetTransactionsAsync(userId));
+    var clientSecret = await walletService.CreateCheckoutAsync(userId, body.PackageId);
+    return Results.Ok(new { clientSecret });
 }).RequireAuthorization();
 
-app.MapGet("/transactions/{id:guid}", async (Guid id, IWalletService walletService) =>
+app.MapGet("/spend", async (HttpContext ctx, IWalletService walletService) =>
+{
+    var userId = (Guid)ctx.Items["UserId"]!;
+    return Results.Ok(await walletService.GetSpendingHistoryAsync(userId));
+}).RequireAuthorization();
+
+app.MapGet("/spend/{id:guid}", async (Guid id, IWalletService walletService) =>
 {
     var tx = await walletService.GetTransactionAsync(id);
     if (tx is null) return Results.NotFound();
     if (tx.GenerationJobId is { } jobId)
         return Results.Redirect($"/generations/{jobId}");
     return Results.Ok(tx);
+}).RequireAuthorization();
+
+app.MapGet("/transactions", async (HttpContext ctx, IWalletService walletService) =>
+{
+    var userId = (Guid)ctx.Items["UserId"]!;
+    return Results.Ok(await walletService.GetPurchasesAsync(userId));
 }).RequireAuthorization();
 
 app.MapGet("/generations/{id:guid}", async (Guid id, IGenerationManager generationManager) =>
@@ -150,6 +179,19 @@ app.MapGet("/generations/{id:guid}", async (Guid id, IGenerationManager generati
 }).RequireAuthorization();
 
 app.Run();
+
+async Task<WebhookRequest> ExtractWebhook(HttpRequest httpRequest)
+{
+    using var buffer = new MemoryStream();
+    await httpRequest.Body.CopyToAsync(buffer);
+
+    var headers = httpRequest.Headers.ToDictionary(
+        h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase);
+    var webhookRequest = new WebhookRequest(buffer.ToArray(), headers);
+    return webhookRequest;
+}
+
+record CheckoutRequest(string PackageId);
 
 
 

@@ -2,7 +2,7 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useAuth0 } from "@auth0/auth0-react"
 import { useParams, Link, useNavigate } from "react-router"
-import { GetTransactionDetail, type TransactionDetailDto, type TransactionResult } from "@/api/queries"
+import { GetSpendDetail, type TransactionDetailDto, type TransactionResult } from "@/api/queries"
 import { Layout } from "@/components/Layout"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Stone, ArrowLeft } from "lucide-react"
@@ -45,7 +45,7 @@ export default function TransactionDetailPage() {
 
   const { data, isLoading, isError } = useQuery<TransactionResult>({
     queryKey: ["transaction", id],
-    queryFn: () => GetTransactionDetail(id!, getAccessTokenSilently),
+    queryFn: () => GetSpendDetail(id!, getAccessTokenSilently),
     enabled: !!id,
   })
 

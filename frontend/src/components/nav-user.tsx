@@ -111,7 +111,7 @@ export function NavUser() {
                 <BadgeCheckIcon />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem render={<Link to="/billing" />}>
                 <CreditCardIcon />
                 Billing
               </DropdownMenuItem>

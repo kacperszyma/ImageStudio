@@ -77,7 +77,14 @@ public sealed class WalletDbFixture : IAsyncLifetime
         return new WalletDbContext(opts);
     }
 
-    internal WalletService CreateService() => new(CreateContext());
+    internal WalletService CreateService() => new(CreateContext(), new NullPaymentGateway());
+
+    private sealed class NullPaymentGateway : IPaymentGateway
+    {
+        public Task<string> CreateCheckoutSessionAsync(Guid userId, string packageId) => throw new NotSupportedException();
+        public bool VerifyWebhookSignature(string payload, string signature) => throw new NotSupportedException();
+        public CheckoutCompletedEvent? ParseCheckoutCompleted(string payload) => throw new NotSupportedException();
+    }
 }
 
 [CollectionDefinition("wallet-db")]

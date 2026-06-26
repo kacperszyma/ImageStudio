@@ -14,6 +14,13 @@ async function config(getToken: GetTokenFn) {
 
 export type ImageModel = { slug: string; creditCost: number }
 
+export type PebblePackage = {
+    nameId: string
+    dollarPrice: number
+    pebbleAmount: number
+    discountAmount: number
+}
+
 export type GenerationDetails = {
     jobId: string
     modelSlug: string
@@ -53,6 +60,15 @@ export type TransactionDetailDto = {
     generationJobId: string | null
 }
 
+// Real-money purchase of a Pebble package (GET /transactions).
+export type PurchaseDto = {
+    id: string
+    packageNameId: string
+    dollarAmount: number
+    pebbleAmount: number
+    createdAt: string
+}
+
 async function GetModels(getToken: GetTokenFn): Promise<ImageModel[]> {
     const response = await axios.get(BASE_URL + "/models", await config(getToken))
     return response.data;
@@ -73,7 +89,14 @@ async function GetHistory(getToken: GetTokenFn): Promise<GenerationDetails[]> {
     return response.data;
 }
 
-async function GetTransactions(getToken: GetTokenFn): Promise<TransactionDto[]> {
+// Pebble charge history — one entry per generation (GET /spend).
+async function GetSpendingHistory(getToken: GetTokenFn): Promise<TransactionDto[]> {
+    const response = await axios.get(BASE_URL + "/spend", await config(getToken))
+    return response.data;
+}
+
+// Real-money purchase history (GET /transactions).
+async function GetPurchases(getToken: GetTokenFn): Promise<PurchaseDto[]> {
     const response = await axios.get(BASE_URL + "/transactions", await config(getToken))
     return response.data;
 }
@@ -82,9 +105,9 @@ export type TransactionResult =
     | { kind: 'transaction'; data: TransactionDetailDto }
     | { kind: 'generation'; generationId: string }
 
-async function GetTransactionDetail(id: string, getToken: GetTokenFn): Promise<TransactionResult> {
+async function GetSpendDetail(id: string, getToken: GetTokenFn): Promise<TransactionResult> {
     const token = await getToken()
-    const response = await fetch(BASE_URL + `/transactions/${id}`, {
+    const response = await fetch(BASE_URL + `/spend/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
     })
     if (!response.ok) throw new Error(String(response.status))
@@ -101,4 +124,20 @@ async function GetGenerationDetail(id: string, getToken: GetTokenFn): Promise<Ge
     return response.data;
 }
 
-export { Generate, GetModels, GetBalance, GetHistory, GetTransactions, GetTransactionDetail, GetGenerationDetail }
+async function GetPackages(getToken: GetTokenFn): Promise<PebblePackage[]> {
+    const response = await axios.get(BASE_URL + "/packages", await config(getToken))
+    return response.data;
+}
+
+// Creates a Stripe Checkout session for the given package and returns the
+// client secret used to mount the embedded checkout.
+async function CreateCheckoutSession(packageId: string, getToken: GetTokenFn): Promise<string> {
+    const response = await axios.post(
+        BASE_URL + "/checkout",
+        { packageId },
+        await config(getToken),
+    )
+    return response.data.clientSecret;
+}
+
+export { Generate, GetModels, GetBalance, GetHistory, GetSpendingHistory, GetPurchases, GetSpendDetail, GetGenerationDetail, GetPackages, CreateCheckoutSession }
