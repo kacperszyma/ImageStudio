@@ -13,7 +13,7 @@ namespace GenerationManager.IntegrationTests;
 /// outcome + intent atomically, and <see cref="OutboxDispatcher"/> applies the
 /// side effects, retrying until each sticks.
 /// </summary>
-[Collection("saga-db")]
+[Collection("saga-db")] 
 public sealed class SagaSettlementTests(SagaDbFixture db)
 {
     private GenerationManagerService NewManager(FakeGenerationService gen) =>
