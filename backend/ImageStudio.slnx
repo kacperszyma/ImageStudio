@@ -16,6 +16,7 @@
     <Project Path="tests/Api.EndToEndTests/Api.EndToEndTests.csproj" />
     <Project Path="tests/Generation.IntegrationTests/Generation.IntegrationTests.csproj" />
     <Project Path="tests/Generation.UnitTests/Generation.UnitTests.csproj" />
+    <Project Path="tests/GenerationManager.IntegrationTests/GenerationManager.IntegrationTests.csproj" />
     <Project Path="tests/Users.UnitTests/Users.UnitTests.csproj" />
     <Project Path="tests/Wallet.IntegrationTests/Wallet.IntegrationTests.csproj" />
     <Project Path="tests/Wallet.UnitTests/Wallet.UnitTests.csproj" />

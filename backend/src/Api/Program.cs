@@ -157,9 +157,10 @@ app.MapGet("/spend", async (HttpContext ctx, IWalletService walletService) =>
     return Results.Ok(await walletService.GetSpendingHistoryAsync(userId));
 }).RequireAuthorization();
 
-app.MapGet("/spend/{id:guid}", async (Guid id, IWalletService walletService) =>
+app.MapGet("/spend/{id:guid}", async (HttpContext ctx, Guid id, IWalletService walletService) =>
 {
-    var tx = await walletService.GetTransactionAsync(id);
+    var userId = (Guid)ctx.Items["UserId"]!;
+    var tx = await walletService.GetTransactionAsync(id, userId);
     if (tx is null) return Results.NotFound();
     if (tx.GenerationJobId is { } jobId)
         return Results.Redirect($"/generations/{jobId}");
@@ -172,9 +173,10 @@ app.MapGet("/transactions", async (HttpContext ctx, IWalletService walletService
     return Results.Ok(await walletService.GetPurchasesAsync(userId));
 }).RequireAuthorization();
 
-app.MapGet("/generations/{id:guid}", async (Guid id, IGenerationManager generationManager) =>
+app.MapGet("/generations/{id:guid}", async (HttpContext ctx, Guid id, IGenerationManager generationManager) =>
 {
-    var details = await generationManager.GetDetailsAsync(id);
+    var userId = (Guid)ctx.Items["UserId"]!;
+    var details = await generationManager.GetDetailsAsync(id, userId);
     return details is null ? Results.NotFound() : Results.Ok(details);
 }).RequireAuthorization();
 

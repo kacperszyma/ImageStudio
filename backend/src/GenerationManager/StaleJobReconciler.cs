@@ -1,6 +1,5 @@
-using GenerationManager.Contracts;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Wallet.Contracts;
 
 namespace GenerationManager;
 
@@ -12,13 +11,11 @@ internal interface IStaleJobReconciler
 /// <summary>
 /// Releases jobs stranded in <see cref="GenerationJobStatus.Pending"/> — those
 /// whose provider webhook never arrived (lost delivery, crash before the request
-/// id was recorded, endpoint down past the provider's retry budget). Without
-/// this, their frozen funds would stay frozen forever.
+/// id was recorded, endpoint down past the provider's retry budget). Such a job
+/// was never charged (the charge only happens via the outbox after a Completed
+/// decision), so its funds are still frozen and must be refunded.
 /// </summary>
-internal sealed class StaleJobReconciler(
-    GenerationManagerDbContext db,
-    IWalletService walletService,
-    IGenerationNotifier notifier) : IStaleJobReconciler
+internal sealed class StaleJobReconciler(GenerationManagerDbContext db) : IStaleJobReconciler
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(10);
 
@@ -35,12 +32,18 @@ internal sealed class StaleJobReconciler(
             // Same Pending guard as CompleteJobAsync: a webhook that settles a
             // job first flips its status, so this sweep won't touch it (and a
             // job expired here is no longer Pending, so a late webhook no-ops).
-            await walletService.UnfreezeAsync(job.Id);
+            // Flip status and enqueue the refund+notify in one transaction; the
+            // dispatcher applies them, just like a failed settlement.
             job.Status = GenerationJobStatus.Expired;
             job.CompletedAt = DateTime.UtcNow;
+            db.Outbox.Add(new OutboxMessage
+            {
+                Id = Guid.NewGuid(),
+                JobId = job.Id,
+                Payload = JsonSerializer.Serialize(new SettlePayload(Success: false, ImageUrl: null)),
+                CreatedAt = DateTime.UtcNow,
+            });
             await db.SaveChangesAsync(ct);
-
-            await notifier.FailedAsync(job.UserId, job.Id);
         }
     }
 }

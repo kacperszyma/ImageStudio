@@ -16,7 +16,8 @@ public interface IGenerationManager
     /// </summary>
     Task CompleteJobAsync(string requestId, string? imageUrl, bool success);
 
-    Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId);
+    /// <summary>Returns the job's details only if it belongs to <paramref name="userId"/>; otherwise null.</summary>
+    Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId, Guid userId);
     Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId);
 }
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Generation.Contracts;
 using GenerationManager.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,6 @@ namespace GenerationManager;
 internal sealed class GenerationManagerService(
     IGenerationService generationService,
     IWalletService walletService,
-    IGenerationNotifier notifier,
     GenerationManagerDbContext db) : IGenerationManager
 {
     public async Task<Guid> GenerateAsync(Guid userId, string modelSlug, string prompt)
@@ -57,28 +57,26 @@ internal sealed class GenerationManagerService(
         if (job is null || job.Status != GenerationJobStatus.Pending)
             return;
 
-        if (success && imageUrl is not null)
-        {
-            await walletService.ChargeFrozenAsync(job.Id);
-            job.Status = GenerationJobStatus.Completed;
-            job.CompletedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
+        var succeeded = success && imageUrl is not null;
 
-            // Generation owns the artifact; have it record the produced image.
-            await generationService.CompleteGenerationAsync(requestId, imageUrl);
-
-            await notifier.CompletedAsync(job.UserId, job.Id, imageUrl);
-        }
-        else
-        {
-            await walletService.UnfreezeAsync(job.Id);
-            job.Status = GenerationJobStatus.Failed;
-            job.CompletedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
-
-            await notifier.FailedAsync(job.UserId, job.Id);
-        }
+        // Record the outcome AND the intent to act on it in one manager-DB
+        // transaction: the status flip and the outbox row commit together, so a
+        // settled job can never be missing the side effects it implies. The actual
+        // work (charge/refund, record image, notify) is drained from the outbox by
+        // the dispatcher, retried until each sticks.
+        job.Status = succeeded ? GenerationJobStatus.Completed : GenerationJobStatus.Failed;
+        job.CompletedAt = DateTime.UtcNow;
+        db.Outbox.Add(Settlement(job.Id, succeeded, imageUrl));
+        await db.SaveChangesAsync();
     }
+
+    private static OutboxMessage Settlement(Guid jobId, bool success, string? imageUrl) => new()
+    {
+        Id = Guid.NewGuid(),
+        JobId = jobId,
+        Payload = JsonSerializer.Serialize(new SettlePayload(success, imageUrl)),
+        CreatedAt = DateTime.UtcNow,
+    };
 
     public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId)
     {
@@ -101,9 +99,11 @@ internal sealed class GenerationManagerService(
         }).ToList();
     }
 
-    public async Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId)
+    public async Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId, Guid userId)
     {
-        var job = await db.Jobs.FirstOrDefaultAsync(j => j.Id == jobId);
+        // Scope by userId: a caller may only read their own jobs. A non-owner
+        // gets the same null as a missing job, so ids can't be probed.
+        var job = await db.Jobs.FirstOrDefaultAsync(j => j.Id == jobId && j.UserId == userId);
         if (job is null) return null;
 
         GenerationSummary? summary = null;

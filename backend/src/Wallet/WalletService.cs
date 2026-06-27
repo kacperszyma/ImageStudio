@@ -180,18 +180,7 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             var wallet = await LockWalletAsync(userId);
             if (await LedgerEntryExistsAsync(idempotencyKey)) return;   // concurrent duplicate
 
-            wallet.Balance += amount;
-
-            db.Ledger.Add(new WalletLedger
-            {
-                CreatedAt = DateTime.UtcNow,
-                WalletId = userId,
-                Amount = amount,
-                Type = TransactionType.TopUp,
-                BalanceAfter = wallet.Balance,
-                IdempotencyKey = idempotencyKey,
-                PurchaseId = purchaseId,
-            });
+            Credit(wallet, amount, idempotencyKey, purchaseId);
 
             await db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -205,6 +194,24 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             await tx.RollbackAsync();
             throw;
         }
+    }
+
+    // Applies a credit to the wallet's spendable balance and records the matching
+    // ledger row. Transaction-agnostic: the caller must already hold an open
+    // transaction and the wallet row lock (see TopUpAsync / ProcessPaymentWebhookAsync).
+    private void Credit(WalletAccount wallet, long amount, string idempotencyKey, Guid? purchaseId)
+    {
+        wallet.Balance += amount;
+        db.Ledger.Add(new WalletLedger
+        {
+            CreatedAt = DateTime.UtcNow,
+            WalletId = wallet.UserId,
+            Amount = amount,
+            Type = TransactionType.TopUp,
+            BalanceAfter = wallet.Balance,
+            IdempotencyKey = idempotencyKey,
+            PurchaseId = purchaseId,
+        });
     }
 
     public List<PackageOfferDto> GetPackages() =>
@@ -240,29 +247,60 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
         if (evt is null) return; // unhandled event type — not an error
 
         var package = PebblePackage.FromName(evt.PackageId);
+        var amount = (long)package.PebbleAmount;
 
-        if (await db.Purchases.AnyAsync(p => p.ExternalPaymentId == evt.SessionId))
-            return; // already processed — idempotent against Stripe retries
+        // The ledger idempotency key is the Stripe session id, so a redelivery we've
+        // already fully processed is a no-op. Crucially, idempotency is keyed on the
+        // CREDIT, not on the purchase row — so a delivery that recorded the purchase
+        // but never credited (a crash between the two) still gets healed below.
+        if (await LedgerEntryExistsAsync(evt.SessionId)) return;
 
-        var purchase = new WalletPurchase
+        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        try
         {
-            Id = Guid.NewGuid(),
-            UserId = evt.UserId,
-            PackageNameId = evt.PackageId,
-            DollarAmount = package.DollarPrice,
-            PebbleAmount = (long)package.PebbleAmount,
-            ExternalPaymentId = evt.SessionId,
-            CreatedAt = DateTime.UtcNow,
-        };
-        db.Purchases.Add(purchase);
-        await db.SaveChangesAsync();
+            var wallet = await LockWalletAsync(evt.UserId);
+            if (await LedgerEntryExistsAsync(evt.SessionId)) return; // concurrent duplicate
 
-        await TopUpAsync(evt.UserId, (long)package.PebbleAmount, evt.SessionId, purchase.Id);
+            // Reuse the purchase from a prior partial delivery if present (keeps the
+            // ledger FK valid); otherwise record it now. Purchase and credit commit
+            // together — a crash can never again leave one without the other.
+            var purchase = await db.Purchases.FirstOrDefaultAsync(p => p.ExternalPaymentId == evt.SessionId);
+            if (purchase is null)
+            {
+                purchase = new WalletPurchase
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = evt.UserId,
+                    PackageNameId = evt.PackageId,
+                    DollarAmount = package.DollarPrice,
+                    PebbleAmount = amount,
+                    ExternalPaymentId = evt.SessionId,
+                    CreatedAt = DateTime.UtcNow,
+                };
+                db.Purchases.Add(purchase);
+            }
+
+            Credit(wallet, amount, evt.SessionId, purchase.Id);
+
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        {
+            await tx.RollbackAsync(); // duplicate delivery — already recorded and credited
+        }
+        catch
+        {
+            await tx.RollbackAsync();
+            throw;
+        }
     }
 
-    public async Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId)
+    public async Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId, Guid userId)
     {
-        var entry = await db.Ledger.FirstOrDefaultAsync(l => l.Id == transactionId);
+        // Scope by userId: a caller may only read their own ledger entries. A
+        // non-owner gets the same null as a missing entry, so ids can't be probed.
+        var entry = await db.Ledger.FirstOrDefaultAsync(l => l.Id == transactionId && l.WalletId == userId);
         if (entry is null) return null;
 
         Guid? generationJobId = null;

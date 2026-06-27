@@ -20,6 +20,9 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>Wallet.IntegrationTests</_Parameter1>
     </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>GenerationManager.IntegrationTests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
   <PropertyGroup>

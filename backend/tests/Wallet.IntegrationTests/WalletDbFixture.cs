@@ -10,13 +10,19 @@ namespace Wallet.IntegrationTests;
 /// </summary>
 public sealed class WalletDbFixture : IAsyncLifetime
 {
-    private const string AdminConnStr =
-        "Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=postgres";
+    // Host/port come from PGHOST/PGPORT (default localhost:5432) so the same tests
+    // run locally and inside the Dagger pipeline, where Postgres is a bound service
+    // reachable at host 'db'.
+    private static string Host => Environment.GetEnvironmentVariable("PGHOST") ?? "localhost";
+    private static string Port => Environment.GetEnvironmentVariable("PGPORT") ?? "5432";
+
+    private static string AdminConnStr =>
+        $"Host={Host};Port={Port};Database=postgres;Username=postgres;Password=postgres";
 
     private const string TestDatabase = "imagestudio_test";
 
-    public string ConnectionString { get; } =
-        "Host=localhost;Port=5432;Database=imagestudio_test;Username=postgres;Password=postgres";
+    public string ConnectionString =>
+        $"Host={Host};Port={Port};Database={TestDatabase};Username=postgres;Password=postgres";
 
     public async Task InitializeAsync()
     {
@@ -78,6 +84,8 @@ public sealed class WalletDbFixture : IAsyncLifetime
     }
 
     internal WalletService CreateService() => new(CreateContext(), new NullPaymentGateway());
+
+    internal WalletService CreateService(IPaymentGateway gateway) => new(CreateContext(), gateway);
 
     private sealed class NullPaymentGateway : IPaymentGateway
     {

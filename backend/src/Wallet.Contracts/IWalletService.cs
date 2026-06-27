@@ -12,7 +12,7 @@ public interface IWalletService
     Task<IReadOnlyList<TransactionDto>> GetSpendingHistoryAsync(Guid userId);
     Task<IReadOnlyList<PurchaseDto>> GetPurchasesAsync(Guid userId);
     Task<GenerationWalletDetails?> GetGenerationWalletDetailsAsync(Guid jobId);
-    Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId);
+    Task<TransactionDetailDto?> GetTransactionAsync(Guid transactionId, Guid userId);
     bool VerifyPaymentWebhook(string payload, string signature);
     Task<string> CreateCheckoutAsync(Guid userId, string packageId);
     Task ProcessPaymentWebhookAsync(string payload, string signature);

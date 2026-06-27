@@ -14,7 +14,9 @@ public static class GenerationManagerModule
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
         services.AddScoped<IGenerationManager, GenerationManagerService>();
         services.AddScoped<IStaleJobReconciler, StaleJobReconciler>();
+        services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();
         services.AddHostedService<ReconciliationWorker>();
+        services.AddHostedService<OutboxWorker>();
         return services;
     }
 }
