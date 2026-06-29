@@ -56,6 +56,15 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var sp = scope.ServiceProvider;
+    await UsersModule.ApplyMigrationsAsync(sp);
+    await WalletModule.ApplyMigrationsAsync(sp);
+    await GenerationModule.ApplyMigrationsAsync(sp);
+    await GenerationManagerModule.ApplyMigrationsAsync(sp);
+}
+
 app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -78,7 +87,7 @@ var falWebhookPath = new Uri(app.Configuration["FAL_WEBHOOK_URL"]
 
 app.MapPost(falWebhookPath, async (
     HttpRequest request,
-    IGenerationService generationService,
+    IGenerationWebhook generationWebhook,
     IGenerationManager generationManager) =>
 {
     WebhookRequest webhook = await ExtractWebhook(request);
@@ -86,7 +95,7 @@ app.MapPost(falWebhookPath, async (
     GenerationCallback callback;
     try
     {
-        callback = await generationService.ParseCallbackAsync(webhook);
+        callback = await generationWebhook.ParseCallbackAsync(webhook);
     }
     catch (WebhookVerificationException)
     {

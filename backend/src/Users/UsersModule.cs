@@ -15,4 +15,7 @@ public static class UsersModule
         services.AddScoped<IUserService, UserService>();
         return services;
     }
+
+    public static Task ApplyMigrationsAsync(IServiceProvider sp) =>
+        sp.GetRequiredService<UsersDbContext>().Database.MigrateAsync();
 }

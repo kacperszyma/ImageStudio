@@ -16,8 +16,10 @@ namespace GenerationManager.IntegrationTests;
 [Collection("saga-db")] 
 public sealed class SagaSettlementTests(SagaDbFixture db)
 {
+    private static readonly FakeGenerationQueryService QueryService = new();
+
     private GenerationManagerService NewManager(FakeGenerationService gen) =>
-        new(gen, db.CreateWalletService(), db.CreateManagerContext());
+        new(gen, QueryService, db.CreateWalletService(), db.CreateManagerContext());
 
     private OutboxDispatcher NewDispatcher(FakeGenerationService gen, RecordingNotifier notifier) =>
         new(db.CreateManagerContext(), db.CreateWalletService(), gen, notifier,

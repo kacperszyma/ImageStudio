@@ -18,7 +18,13 @@ public static class GenerationModule
         services.AddSingleton<FalWebhookVerifier>(); // caches Fal's public keys
         services.AddScoped<IGenerationProvider,FalGenerationProvider>();
        // services.AddScoped<IGenerationProvider, MockGenerationProvider>();
-        services.AddScoped<IGenerationService, GenerationService>();
+        services.AddScoped<GenerationService>();
+        services.AddScoped<IGenerationService>(sp => sp.GetRequiredService<GenerationService>());
+        services.AddScoped<IGenerationQueryService>(sp => sp.GetRequiredService<GenerationService>());
+        services.AddScoped<IGenerationWebhook>(sp => sp.GetRequiredService<GenerationService>());
         return services;
     }
+
+    public static Task ApplyMigrationsAsync(IServiceProvider sp) =>
+        sp.GetRequiredService<GenerationDbContext>().Database.MigrateAsync();
 }

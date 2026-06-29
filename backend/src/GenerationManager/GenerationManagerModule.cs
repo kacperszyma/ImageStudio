@@ -19,4 +19,7 @@ public static class GenerationManagerModule
         services.AddHostedService<OutboxWorker>();
         return services;
     }
+
+    public static Task ApplyMigrationsAsync(IServiceProvider sp) =>
+        sp.GetRequiredService<GenerationManagerDbContext>().Database.MigrateAsync();
 }

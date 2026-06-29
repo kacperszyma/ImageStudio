@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Generation.Contracts;
 using GenerationManager.Contracts;
-using SharedKernel;
 
 namespace GenerationManager.IntegrationTests;
 
@@ -25,6 +24,7 @@ internal sealed class FakeGenerationService : IGenerationService
     public string? RecordedImageFor(string requestId) =>
         _recordedImages.TryGetValue(requestId, out var url) ? url : null;
 
+    public List<ModelDto> GetModels() => [];
     public long GetCost(string modelSlug) => Cost;
 
     public Task<string> SubmitAsync(Guid userId, string modelSlug, string prompt)
@@ -44,14 +44,13 @@ internal sealed class FakeGenerationService : IGenerationService
         _recordedImages[requestId] = imageUrl;
         return Task.CompletedTask;
     }
+}
 
-    // ── Unused by these tests ────────────────────────────────────────────────
-    public List<ModelDto> GetModels() => [];
-    public Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request) => throw new NotSupportedException();
-    public Task<IReadOnlyCollection<GenerationDetails>> GetGenerationHistory(Guid userId) =>
-        Task.FromResult<IReadOnlyCollection<GenerationDetails>>([]);
+internal sealed class FakeGenerationQueryService : IGenerationQueryService
+{
     public Task<GenerationSummary?> GetDetailsByRequestIdAsync(string falRequestId) =>
         Task.FromResult<GenerationSummary?>(null);
+
     public Task<IReadOnlyDictionary<string, GenerationSummary>> GetSummariesByRequestIdsAsync(IEnumerable<string> falRequestIds) =>
         Task.FromResult<IReadOnlyDictionary<string, GenerationSummary>>(new Dictionary<string, GenerationSummary>());
 }

@@ -4,7 +4,8 @@ using SharedKernel;
 
 namespace Generation;
 
-internal sealed class GenerationService(IGenerationProvider provider, GenerationDbContext db) : IGenerationService
+internal sealed class GenerationService(IGenerationProvider provider, GenerationDbContext db)
+    : IGenerationService, IGenerationQueryService, IGenerationWebhook
 {
     public List<ModelDto> GetModels() =>
         ImageModel.All.Select(m => new ModelDto(m.Slug, m.CreditCost)).ToList();
@@ -42,14 +43,6 @@ internal sealed class GenerationService(IGenerationProvider provider, Generation
 
         generation.ResultUrl = imageUrl;
         await db.SaveChangesAsync();
-    }
-
-    public async Task<IReadOnlyCollection<GenerationDetails>> GetGenerationHistory(Guid userId)
-    {
-        return await db.Generations
-            .Where(g => g.UserId == userId)
-            .Select(g => new GenerationDetails(g.ImageModel, g.Prompt, g.ResultUrl, g.CreditCost))
-            .ToListAsync();
     }
 
     public async Task<GenerationSummary?> GetDetailsByRequestIdAsync(string falRequestId)

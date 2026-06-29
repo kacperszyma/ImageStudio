@@ -8,6 +8,7 @@ namespace GenerationManager;
 
 internal sealed class GenerationManagerService(
     IGenerationService generationService,
+    IGenerationQueryService queryService,
     IWalletService walletService,
     GenerationManagerDbContext db) : IGenerationManager
 {
@@ -90,7 +91,7 @@ internal sealed class GenerationManagerService(
             .Select(j => j.FalRequestId!)
             .ToList();
 
-        var summaries = await generationService.GetSummariesByRequestIdsAsync(requestIds);
+        var summaries = await queryService.GetSummariesByRequestIdsAsync(requestIds);
 
         return jobs.Select(j =>
         {
@@ -108,7 +109,7 @@ internal sealed class GenerationManagerService(
 
         GenerationSummary? summary = null;
         if (job.FalRequestId is not null)
-            summary = await generationService.GetDetailsByRequestIdAsync(job.FalRequestId);
+            summary = await queryService.GetDetailsByRequestIdAsync(job.FalRequestId);
 
         var walletDetails = await walletService.GetGenerationWalletDetailsAsync(jobId);
 

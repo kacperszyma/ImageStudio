@@ -17,4 +17,7 @@ public static class WalletModule
         services.AddScoped<IWalletService, WalletService>();
         return services;
     }
+
+    public static Task ApplyMigrationsAsync(IServiceProvider sp) =>
+        sp.GetRequiredService<WalletDbContext>().Database.MigrateAsync();
 }
