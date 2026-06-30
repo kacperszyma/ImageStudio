@@ -238,6 +238,15 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
     public Task<string> CreateCheckoutAsync(Guid userId, string packageId) =>
         paymentGateway.CreateCheckoutSessionAsync(userId, packageId);
 
+    public async Task RedeemSessionAsync(string sessionId, Guid userId)
+    {
+        var evt = await paymentGateway.FetchCompletedSessionAsync(sessionId);
+        // Session not paid, invalid, or belongs to a different user — ignore silently.
+        if (evt is null || evt.UserId != userId) return;
+
+        await CreditSessionAsync(evt);
+    }
+
     public async Task ProcessPaymentWebhookAsync(string payload, string signature)
     {
         if (!paymentGateway.VerifyWebhookSignature(payload, signature))
@@ -246,6 +255,11 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
         var evt = paymentGateway.ParseCheckoutCompleted(payload);
         if (evt is null) return; // unhandled event type — not an error
 
+        await CreditSessionAsync(evt);
+    }
+
+    private async Task CreditSessionAsync(CheckoutCompletedEvent evt)
+    {
         var package = PebblePackage.FromName(evt.PackageId);
         var amount = (long)package.PebbleAmount;
 
@@ -321,9 +335,12 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             l => l.IdempotencyKey == jobId.ToString() && l.Type == TransactionType.Freeze);
         if (freeze is null) return null;
 
+        var unfreeze = await db.Ledger.FirstOrDefaultAsync(
+            l => l.IdempotencyKey == $"unfreeze_{jobId}" && l.Type == TransactionType.Unfreeze);
+
         return new GenerationWalletDetails(
             BalanceBefore: freeze.BalanceAfter + freeze.Amount,
-            BalanceAfter: freeze.BalanceAfter);
+            BalanceAfter: unfreeze?.BalanceAfter ?? freeze.BalanceAfter);
     }
 
     // Locks the wallet row for the duration of the transaction (SELECT ... FOR UPDATE);

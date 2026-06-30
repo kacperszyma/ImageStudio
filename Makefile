@@ -14,14 +14,16 @@ FRONTEND_DIR := frontend
 FAKE_FAL_DIR := tools/fake-fal
 CONDA_ENV := wma
 
-.PHONY: dev backend frontend db wait-db down install fake-fal
+.PHONY: dev backend frontend db wait-db down install fake-fal stripe-listen
 
 ## Run the full native dev stack (Postgres in a container, app processes native).
 dev: db wait-db
-	@echo "→ backend on :5253, frontend on :5173 (Ctrl-C to stop both)"
+	@echo "→ backend on :5253, frontend on :5173, fake-fal on :8080 (Ctrl-C to stop all)"
 	@trap 'kill 0' EXIT INT TERM; \
 		$(MAKE) --no-print-directory backend & \
 		$(MAKE) --no-print-directory frontend & \
+		$(MAKE) --no-print-directory fake-fal & \
+		$(MAKE) --no-print-directory stripe-listen & \
 		wait
 
 ## Backend API (reads secrets from the root .env via DotNetEnv).
@@ -54,6 +56,11 @@ install:
 ## Point the backend at it via .env (FAL_QUEUE_URL/FAL_JWKS_URL) — see tools/fake-fal.
 fake-fal:
 	cd $(FAKE_FAL_DIR) && conda run -n $(CONDA_ENV) --no-capture-output python fake_fal.py
+
+## Forward Stripe webhooks to the local backend. The signing secret printed on
+## first run must match STRIPE_WEBHOOK_SECRET in .env.
+stripe-listen:
+	stripe listen --forward-to localhost:5253/stripe/webhook
 
 ## Stop the backing services.
 down:

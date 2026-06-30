@@ -72,6 +72,19 @@ internal sealed class StripePaymentGateway(IConfiguration config) : IPaymentGate
             return null;
 
         var session = stripeEvent.Data.Object as global::Stripe.Checkout.Session;
+        return ExtractEvent(session);
+    }
+
+    public async Task<CheckoutCompletedEvent?> FetchCompletedSessionAsync(string sessionId)
+    {
+        var service = new SessionService(_client);
+        var session = await service.GetAsync(sessionId);
+        if (session.PaymentStatus != "paid") return null;
+        return ExtractEvent(session);
+    }
+
+    private static CheckoutCompletedEvent? ExtractEvent(global::Stripe.Checkout.Session? session)
+    {
         if (session?.Metadata is null) return null;
 
         if (!session.Metadata.TryGetValue("userId", out var userIdStr) ||

@@ -112,8 +112,9 @@ class Imagestudio:
         """
         return await (
             self._sdk(source)
+            .with_env_variable("DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION", "1")
             .with_exec(
-                ["sh", "-c", f"for p in {UNIT_TEST_PROJECTS}; do dotnet test $p || exit 1; done"]
+                ["sh", "-c", f'for p in {UNIT_TEST_PROJECTS}; do dotnet test $p --verbosity quiet --logger "console;verbosity=normal" || exit 1; done']
             )
             .stdout()
         )
@@ -130,8 +131,9 @@ class Imagestudio:
             .with_service_binding("db", self._postgres())
             .with_env_variable("PGHOST", "db")
             .with_env_variable("PGPORT", "5432")
+            .with_env_variable("DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION", "1")
             .with_exec(
-                ["sh", "-c", f"for p in {INTEGRATION_TEST_PROJECTS}; do dotnet test $p || exit 1; done"]
+                ["sh", "-c", f'for p in {INTEGRATION_TEST_PROJECTS}; do dotnet test $p --verbosity quiet --logger "console;verbosity=normal" || exit 1; done']
             )
             .stdout()
         )

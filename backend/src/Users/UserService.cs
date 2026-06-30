@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Users.Contracts;
 
 namespace Users;
@@ -13,8 +14,17 @@ internal sealed class UserService(UsersDbContext db) : IUserService
 
         var user = new User { Id = Guid.NewGuid(), Sub = sub, Email = email, CreatedAt = DateTime.UtcNow };
         db.Users.Add(user);
-        await db.SaveChangesAsync();
-        return (true, user.Id);
+        try
+        {
+            await db.SaveChangesAsync();
+            return (true, user.Id);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: "23505" })
+        {
+            db.ChangeTracker.Clear();
+            var raced = await db.Users.FirstAsync(u => u.Sub == sub);
+            return (false, raced.Id);
+        }
     }
 
     public Task<bool> ExistsAsync(string sub) =>

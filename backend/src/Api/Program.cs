@@ -1,3 +1,5 @@
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using Wallet;
 using Users;
 using Generation;
@@ -53,6 +55,16 @@ builder.Services.AddAuthentication(options =>
             };
         });
 builder.Services.AddAuthorization();
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService(serviceName: builder.Environment.ApplicationName))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddConsoleExporter((exporterOptions, metricReaderOptions) =>
+        {
+            metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 1000;
+        }));
 
 var app = builder.Build();
 
@@ -160,6 +172,13 @@ app.MapPost("/checkout", async (HttpContext ctx, IWalletService walletService, C
     return Results.Ok(new { clientSecret });
 }).RequireAuthorization();
 
+app.MapPost("/checkout/redeem", async (HttpContext ctx, IWalletService walletService, RedeemRequest body) =>
+{
+    var userId = (Guid)ctx.Items["UserId"]!;
+    await walletService.RedeemSessionAsync(body.SessionId, userId);
+    return Results.Ok();
+}).RequireAuthorization();
+
 app.MapGet("/spend", async (HttpContext ctx, IWalletService walletService) =>
 {
     var userId = (Guid)ctx.Items["UserId"]!;
@@ -203,6 +222,7 @@ async Task<WebhookRequest> ExtractWebhook(HttpRequest httpRequest)
 }
 
 record CheckoutRequest(string PackageId);
+record RedeemRequest(string SessionId);
 
 
 

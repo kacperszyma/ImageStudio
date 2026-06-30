@@ -27,6 +27,7 @@ export type GenerationDetails = {
     prompt: string
     imageUrl: string | null
     creditCost: number
+    status: string
 }
 
 export type GenerationDetailDto = {
@@ -140,4 +141,8 @@ async function CreateCheckoutSession(packageId: string, getToken: GetTokenFn): P
     return response.data.clientSecret;
 }
 
-export { Generate, GetModels, GetBalance, GetHistory, GetSpendingHistory, GetPurchases, GetSpendDetail, GetGenerationDetail, GetPackages, CreateCheckoutSession }
+async function RedeemSession(sessionId: string, getToken: GetTokenFn): Promise<void> {
+    await axios.post(BASE_URL + "/checkout/redeem", { sessionId }, await config(getToken))
+}
+
+export { Generate, GetModels, GetBalance, GetHistory, GetSpendingHistory, GetPurchases, GetSpendDetail, GetGenerationDetail, GetPackages, CreateCheckoutSession, RedeemSession }

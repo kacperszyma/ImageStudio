@@ -79,5 +79,6 @@ public class StripeWebhookTests(WalletDbFixture db)
         public bool VerifyWebhookSignature(string payload, string signature) => true;
         public CheckoutCompletedEvent? ParseCheckoutCompleted(string payload) => evt;
         public Task<string> CreateCheckoutSessionAsync(Guid userId, string packageId) => throw new NotSupportedException();
+        public Task<CheckoutCompletedEvent?> FetchCompletedSessionAsync(string sessionId) => throw new NotSupportedException();
     }
 }

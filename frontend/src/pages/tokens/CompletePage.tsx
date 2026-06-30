@@ -1,6 +1,8 @@
 import { useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import { useQueryClient } from "@tanstack/react-query"
+import { useAuth0 } from "@auth0/auth0-react"
+import { RedeemSession } from "@/api/queries"
 import { Layout } from "@/components/Layout"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2 } from "lucide-react"
@@ -8,14 +10,21 @@ import { CheckCircle2 } from "lucide-react"
 export default function CompletePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { getAccessTokenSilently } = useAuth0()
   const [params] = useSearchParams()
   const sessionId = params.get("session_id")
 
-  // The webhook credits the wallet server-side; refetch the balance so the new
-  // Pebbles show once Stripe has confirmed the payment.
+  // Credit pebbles immediately by fetching the session from Stripe directly —
+  // this heals the case where the webhook hasn't arrived yet (or was missed).
+  // The server uses the session id as an idempotency key, so a later webhook
+  // delivery is a safe no-op.
   useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ["balance"] })
-  }, [queryClient])
+    if (!sessionId) return
+    RedeemSession(sessionId, getAccessTokenSilently).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["balance"] })
+      queryClient.invalidateQueries({ queryKey: ["purchases"] })
+    })
+  }, [sessionId, getAccessTokenSilently, queryClient])
 
   return (
     <Layout>
@@ -31,11 +40,6 @@ export default function CompletePage() {
           </Button>
           <Button onClick={() => navigate("/")}>Start generating</Button>
         </div>
-        {sessionId && (
-          <p className="text-xs text-muted-foreground/60 mt-8 break-all">
-            Reference: {sessionId}
-          </p>
-        )}
       </div>
     </Layout>
   )

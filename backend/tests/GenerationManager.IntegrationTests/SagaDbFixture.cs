@@ -80,6 +80,7 @@ public sealed class SagaDbFixture : IAsyncLifetime
         public Task<string> CreateCheckoutSessionAsync(Guid userId, string packageId) => throw new NotSupportedException();
         public bool VerifyWebhookSignature(string payload, string signature) => throw new NotSupportedException();
         public CheckoutCompletedEvent? ParseCheckoutCompleted(string payload) => throw new NotSupportedException();
+        public Task<CheckoutCompletedEvent?> FetchCompletedSessionAsync(string sessionId) => throw new NotSupportedException();
     }
 }
 

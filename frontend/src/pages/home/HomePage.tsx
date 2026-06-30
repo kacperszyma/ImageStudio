@@ -5,7 +5,7 @@ import { HubConnection } from "@microsoft/signalr"
 import { GetModels, GetBalance } from "@/api/queries"
 import { buildGenerationConnection, registerGenerationHandlers, startGeneration } from "@/api/generationHub"
 import { useAuth0 } from '@auth0/auth0-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Layout } from "@/components/Layout"
 import { ImageArea } from "./subcomponents/ImageArea"
 import { LoginPrompt } from "./subcomponents/LoginPrompt"
@@ -16,6 +16,7 @@ type ImageState = "idle" | "loading" | "result"
 
 export default function HomePage() {
   const { getAccessTokenSilently, isAuthenticated } = useAuth0()
+  const queryClient = useQueryClient()
   const [imageState, setImageState] = useState<ImageState>("idle")
   const [imageUrl, setImageUrl] = useState<string>()
   const [model, setModel] = useState<string>("")
@@ -56,6 +57,7 @@ export default function HomePage() {
         img.onload = reveal
         img.onerror = reveal
         img.src = url
+        queryClient.invalidateQueries({ queryKey: ["balance"] })
       },
       onFailed: (reason) => {
         console.error("Generation failed:", reason)

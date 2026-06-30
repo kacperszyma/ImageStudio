@@ -99,7 +99,10 @@ function DetailView({ data }: { data: GenerationDetailDto }) {
               <span className="flex items-center gap-1">{data.balanceAfter} <Stone size={11} /></span>
             </MetaRow>
             <MetaRow label="Spent">
-              <span className="flex items-center gap-1 text-destructive">−{data.creditCost} <Stone size={11} /></span>
+              {data.status === "Failed"
+                ? <span className="text-muted-foreground">Refunded</span>
+                : <span className="flex items-center gap-1 text-destructive">−{data.creditCost} <Stone size={11} /></span>
+              }
             </MetaRow>
           </div>
         </div>

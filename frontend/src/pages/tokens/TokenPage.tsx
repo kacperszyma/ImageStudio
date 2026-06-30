@@ -41,6 +41,8 @@ function buildChartData(events: BalanceEvent[], currentBalance: number) {
     })
     running -= e.delta
   }
+  // Prepend origin so a single event still renders a line, not just a dot.
+  points.unshift({ date: "", balance: running })
   return points
 }
 

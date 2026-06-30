@@ -16,6 +16,7 @@ public interface IWalletService
     bool VerifyPaymentWebhook(string payload, string signature);
     Task<string> CreateCheckoutAsync(Guid userId, string packageId);
     Task ProcessPaymentWebhookAsync(string payload, string signature);
+    Task RedeemSessionAsync(string sessionId, Guid userId);
 }
 
 public record PackageOfferDto(String NameId, decimal DollarPrice, decimal PebbleAmount, decimal DiscountAmount);

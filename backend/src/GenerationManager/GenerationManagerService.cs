@@ -82,7 +82,7 @@ internal sealed class GenerationManagerService(
     public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId)
     {
         var jobs = await db.Jobs
-            .Where(j => j.UserId == userId)
+            .Where(j => j.UserId == userId && j.Status == GenerationJobStatus.Completed)
             .OrderByDescending(j => j.CreatedAt)
             .ToListAsync();
 
