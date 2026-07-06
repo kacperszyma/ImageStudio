@@ -73,11 +73,11 @@ export default function TokenPage() {
   })
 
   const { data: history, isLoading: historyLoading } = useQuery<GenerationDetails[]>({
-    queryKey: ["history"],
-    queryFn: () => GetHistory(getAccessTokenSilently),
+    queryKey: ["history", 4],
+    queryFn: () => GetHistory(getAccessTokenSilently, 4),
   })
 
-  const recentImages = history?.slice(-4).reverse() ?? []
+  const recentImages = history ?? []
 
   // The chart reconstructs balance over time from both money top-ups and pebble spends.
   const chartLoading = spendLoading || purchasesLoading

@@ -84,12 +84,16 @@ internal sealed class GenerationManagerService(
         CreatedAt = DateTime.UtcNow,
     };
 
-    public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId)
+    public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId, int? limit = null)
     {
-        var jobs = await db.Jobs
+        var query = db.Jobs
             .Where(j => j.UserId == userId && j.Status == GenerationJobStatus.Completed)
             .OrderByDescending(j => j.CreatedAt)
-            .ToListAsync();
+            .AsQueryable();
+
+        if (limit is > 0) query = query.Take(limit.Value);
+
+        var jobs = await query.ToListAsync();
 
         var requestIds = jobs
             .Where(j => j.FalRequestId is not null)

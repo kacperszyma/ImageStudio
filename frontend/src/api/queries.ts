@@ -85,8 +85,11 @@ async function GetBalance(getToken: GetTokenFn): Promise<number> {
     return response.data;
 }
 
-async function GetHistory(getToken: GetTokenFn): Promise<GenerationDetails[]> {
-    const response = await axios.get(BASE_URL + "/history", await config(getToken))
+async function GetHistory(getToken: GetTokenFn, limit?: number): Promise<GenerationDetails[]> {
+    const response = await axios.get(BASE_URL + "/history", {
+        ...await config(getToken),
+        params: limit ? { limit } : undefined,
+    })
     return response.data;
 }
 

@@ -18,7 +18,7 @@ public interface IGenerationManager
 
     /// <summary>Returns the job's details only if it belongs to <paramref name="userId"/>; otherwise null.</summary>
     Task<GenerationDetailDto?> GetDetailsAsync(Guid jobId, Guid userId);
-    Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId);
+    Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId, int? limit = null);
 }
 
 public record GenerationHistoryItem(
