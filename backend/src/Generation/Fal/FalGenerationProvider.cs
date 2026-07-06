@@ -4,7 +4,7 @@ using SharedKernel;
 
 namespace Generation.Fal;
 
-internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerifier verifier)
+internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerifier verifier, FalMetrics metrics)
     : IGenerationProvider
 {
     public async Task<string> SubmitJobAsync(string modelSlug, string prompt)
@@ -18,7 +18,15 @@ internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerif
     public async Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request)
     {
         // Verify before decode so an unverified body can never become a callback.
-        await verifier.VerifyAsync(request);
+        try
+        {
+            await verifier.VerifyAsync(request);
+        }
+        catch (WebhookVerificationException)
+        {
+            metrics.WebhookVerificationFailed();
+            throw;
+        }
         return Decode(request.Body);
     }
 

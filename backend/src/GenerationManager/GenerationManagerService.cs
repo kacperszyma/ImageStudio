@@ -10,7 +10,8 @@ internal sealed class GenerationManagerService(
     IGenerationService generationService,
     IGenerationQueryService queryService,
     IWalletService walletService,
-    GenerationManagerDbContext db) : IGenerationManager
+    GenerationManagerDbContext db,
+    GenerationManagerMetrics metrics) : IGenerationManager
 {
     public async Task<Guid> GenerateAsync(Guid userId, string modelSlug, string prompt)
     {
@@ -37,6 +38,7 @@ internal sealed class GenerationManagerService(
             job.FalRequestId = requestId;
             await db.SaveChangesAsync();
 
+            metrics.JobCreated(modelSlug);
             return jobId;
         }
         catch
@@ -45,6 +47,7 @@ internal sealed class GenerationManagerService(
             job.Status = GenerationJobStatus.Failed;
             job.CompletedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+            metrics.JobSubmitFailed();
             throw;
         }
     }
@@ -69,6 +72,8 @@ internal sealed class GenerationManagerService(
         job.CompletedAt = DateTime.UtcNow;
         db.Outbox.Add(Settlement(job.Id, succeeded, imageUrl));
         await db.SaveChangesAsync();
+
+        metrics.JobSettled(succeeded ? "completed" : "failed", job.CompletedAt.Value - job.CreatedAt);
     }
 
     private static OutboxMessage Settlement(Guid jobId, bool success, string? imageUrl) => new()

@@ -6,7 +6,7 @@ using Npgsql;
 
 namespace Wallet;
 
-internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentGateway) : IWalletService
+internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentGateway, WalletMetrics metrics) : IWalletService
 {
     private const string HoldActive = "active";
     private const string HoldReleased = "released";
@@ -47,7 +47,10 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             if (await HoldExistsAsync(idempotencyKey)) return;   // concurrent duplicate
 
             if (wallet.Balance < amount)
+            {
+                metrics.InsufficientFunds();
                 throw new InsufficientFundsException(userId, amount, wallet.Balance);
+            }
 
             wallet.Balance -= amount;
             wallet.Frozen += amount;
@@ -250,7 +253,10 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
     public async Task ProcessPaymentWebhookAsync(string payload, string signature)
     {
         if (!paymentGateway.VerifyWebhookSignature(payload, signature))
+        {
+            metrics.StripeWebhookVerificationFailed();
             throw new WebhookVerificationException("Invalid Stripe webhook signature.");
+        }
 
         var evt = paymentGateway.ParseCheckoutCompleted(payload);
         if (evt is null) return; // unhandled event type — not an error
@@ -279,6 +285,7 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             // ledger FK valid); otherwise record it now. Purchase and credit commit
             // together — a crash can never again leave one without the other.
             var purchase = await db.Purchases.FirstOrDefaultAsync(p => p.ExternalPaymentId == evt.SessionId);
+            var isNewPurchase = purchase is null;
             if (purchase is null)
             {
                 purchase = new WalletPurchase
@@ -298,6 +305,7 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
 
             await db.SaveChangesAsync();
             await tx.CommitAsync();
+            if (isNewPurchase) metrics.PurchaseCompleted(package.NameId);
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {

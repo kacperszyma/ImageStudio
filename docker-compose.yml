@@ -17,7 +17,7 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--web.enable-lifecycle"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
@@ -47,7 +47,7 @@ services:
     container_name: tempodb
     command: -config.file=/etc/tempo/tempo-config.yml
     volumes:
-      - ./tempo-config.yml:/etc/tempo/tempo-config.yml:ro
+      - ./observability/tempo-config.yml:/etc/tempo/tempo-config.yml:ro
       - tempo_data:/var/tempo
     ports:
       - "3200:3200"
@@ -59,7 +59,7 @@ services:
     container_name: otel-collector
     command: --config=/etc/otel/otel-collector-config.yml
     volumes:
-      - ./otel-collector-config.yml:/etc/otel/otel-collector-config.yml:ro
+      - ./observability/otel-collector-config.yml:/etc/otel/otel-collector-config.yml:ro
     ports:
       - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
@@ -76,7 +76,7 @@ services:
     container_name: loki
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
-      - ./loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ./observability/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
     ports:
       - "3100:3100"

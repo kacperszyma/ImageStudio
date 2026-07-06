@@ -13,6 +13,7 @@ public static class WalletModule
     {
         services.AddDbContext<WalletDbContext>(opt =>
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
+        services.AddSingleton<WalletMetrics>();
         services.AddScoped<IPaymentGateway, StripePaymentGateway>();
         services.AddScoped<IWalletService, WalletService>();
         return services;

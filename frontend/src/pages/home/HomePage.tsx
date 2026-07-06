@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { HubConnection } from "@microsoft/signalr"
-import { GetModels, GetBalance } from "@/api/queries"
+import { GetModels } from "@/api/queries"
 import { buildGenerationConnection, registerGenerationHandlers, startGeneration } from "@/api/generationHub"
 import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,6 +23,7 @@ export default function HomePage() {
   const [prompt, setPrompt] = useState<string>("")
   const [hubConnected, setHubConnected] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [error, setError] = useState<string>()
   const gateRef = useRef(0)
   const hubRef = useRef<HubConnection | null>(null)
 
@@ -60,7 +61,11 @@ export default function HomePage() {
         queryClient.invalidateQueries({ queryKey: ["balance"] })
       },
       onFailed: (reason) => {
-        console.error("Generation failed:", reason)
+        setError(
+          reason === "InsufficientFunds"
+            ? "Not enough credits for this generation."
+            : "Generation failed. Please try again."
+        )
         setImageState("idle")
         setProgress(0)
         gateRef.current = 0
@@ -103,8 +108,7 @@ export default function HomePage() {
 
   async function handleGenerate() {
     if (!hubRef.current || !hubConnected || !prompt.trim()) return
-    console.log("Prompt:", prompt)
-    console.log(await GetBalance(getAccessTokenSilently))
+    setError(undefined)
     setProgress(0)
     gateRef.current = 30
     setImageState("loading")
@@ -118,16 +122,21 @@ export default function HomePage() {
         {!isAuthenticated ? (
           <LoginPrompt />
         ) : (
-          <GenerateControls
-            models={models}
-            isLoading={isLoading}
-            model={model}
-            onModelChange={setModel}
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            onGenerate={handleGenerate}
-            disabled={!hubConnected}
-          />
+          <>
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
+            <GenerateControls
+              models={models}
+              isLoading={isLoading}
+              model={model}
+              onModelChange={setModel}
+              prompt={prompt}
+              onPromptChange={setPrompt}
+              onGenerate={handleGenerate}
+              disabled={!hubConnected}
+            />
+          </>
         )}
       </div>
     </Layout>

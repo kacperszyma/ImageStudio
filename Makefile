@@ -3,22 +3,34 @@
 # Code runs NATIVELY (hot reload); only backing services run in containers.
 # Dagger is container-only and owns CI/CD instead — see .dagger/.
 #
-#   make dev        Postgres + backend (:5253) + frontend (:5173), live logs
-#   make fake-fal   local SD1.5 inference stub (:8080) — heavy, optional
-#   make down       stop the backing services
+#   make dev             Postgres + backend (:5253) + frontend (:5173), live logs
+#   make fulldev         dev + fake-fal (:8080) + observability stack — heavier, optional
+#   make fake-fal        local SD1.5 inference stub (:8080) — heavy, optional
+#   make observability   Prometheus/Grafana/Tempo/Loki/otel-collector only
+#   make down            stop the backing services
 #
-# Ctrl-C on `make dev` tears down backend + frontend; `make down` stops Postgres.
+# Ctrl-C on `make dev`/`make fulldev` tears down backend + frontend; `make down` stops everything.
 
 API_PROJECT := backend/src/Api
 FRONTEND_DIR := frontend
 FAKE_FAL_DIR := tools/fake-fal
 CONDA_ENV := wma
+OBSERVABILITY_SERVICES := prometheus grafana tempo otel-collector loki
 
-.PHONY: dev backend frontend db wait-db down install fake-fal stripe-listen
+.PHONY: dev fulldev backend frontend db wait-db observability down install fake-fal stripe-listen
 
 ## Run the full native dev stack (Postgres in a container, app processes native).
 dev: db wait-db
-	@echo "→ backend on :5253, frontend on :5173, fake-fal on :8080 (Ctrl-C to stop all)"
+	@echo "→ backend on :5253, frontend on :5173 (Ctrl-C to stop all)"
+	@trap 'kill 0' EXIT INT TERM; \
+		$(MAKE) --no-print-directory backend & \
+		$(MAKE) --no-print-directory frontend & \
+		$(MAKE) --no-print-directory stripe-listen & \
+		wait
+
+## Same as dev, plus fake-fal (:8080) and the observability stack (Grafana on :3000).
+fulldev: db wait-db observability
+	@echo "→ backend on :5253, frontend on :5173, fake-fal on :8080, grafana on :3000 (Ctrl-C to stop all)"
 	@trap 'kill 0' EXIT INT TERM; \
 		$(MAKE) --no-print-directory backend & \
 		$(MAKE) --no-print-directory frontend & \
@@ -44,6 +56,12 @@ wait-db:
 	@echo "→ waiting for Postgres…"
 	@until docker compose exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 0.5; done
 	@echo "→ Postgres ready"
+
+## Prometheus + Grafana + Tempo + Loki + otel-collector. The backend exports
+## metrics via OTLP to the collector on localhost:4317 whenever it's up —
+## no app config needed, it just has nothing to send to otherwise.
+observability:
+	docker compose up -d $(OBSERVABILITY_SERVICES)
 
 ## Install all local dependencies up front (optional; dev does this lazily).
 install:

@@ -15,7 +15,7 @@ internal interface IStaleJobReconciler
 /// was never charged (the charge only happens via the outbox after a Completed
 /// decision), so its funds are still frozen and must be refunded.
 /// </summary>
-internal sealed class StaleJobReconciler(GenerationManagerDbContext db) : IStaleJobReconciler
+internal sealed class StaleJobReconciler(GenerationManagerDbContext db, GenerationManagerMetrics metrics) : IStaleJobReconciler
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(10);
 
@@ -44,6 +44,8 @@ internal sealed class StaleJobReconciler(GenerationManagerDbContext db) : IStale
                 CreatedAt = DateTime.UtcNow,
             });
             await db.SaveChangesAsync(ct);
+
+            metrics.JobSettled("expired", job.CompletedAt.Value - job.CreatedAt);
         }
     }
 }

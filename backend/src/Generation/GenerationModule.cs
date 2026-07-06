@@ -16,6 +16,7 @@ public static class GenerationModule
         services.AddHttpClient<FalClient>();
         services.AddHttpClient(); // IHttpClientFactory for the verifier's JWKS fetch
         services.AddSingleton<FalWebhookVerifier>(); // caches Fal's public keys
+        services.AddSingleton<FalMetrics>();
         services.AddScoped<IGenerationProvider,FalGenerationProvider>();
        // services.AddScoped<IGenerationProvider, MockGenerationProvider>();
         services.AddScoped<GenerationService>();

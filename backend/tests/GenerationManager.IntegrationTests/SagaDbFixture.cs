@@ -70,10 +70,15 @@ public sealed class SagaDbFixture : IAsyncLifetime
     internal GenerationManagerDbContext CreateManagerContext() =>
         new(new DbContextOptionsBuilder<GenerationManagerDbContext>().UseNpgsql(ConnectionString).Options);
 
+    // Shared for the fixture's lifetime (one per test collection) so tests that
+    // care about emitted measurements can attach a MeterListener to it.
+    internal WalletMetrics WalletMetrics { get; } = new();
+    internal GenerationManagerMetrics ManagerMetrics { get; } = new();
+
     // A fresh service (and DbContext) per call, mirroring the scoped lifetime each
     // HTTP request / webhook delivery gets in production.
     internal IWalletService CreateWalletService() =>
-        new WalletService(CreateWalletContext(), new NullPaymentGateway());
+        new WalletService(CreateWalletContext(), new NullPaymentGateway(), WalletMetrics);
 
     private sealed class NullPaymentGateway : IPaymentGateway
     {

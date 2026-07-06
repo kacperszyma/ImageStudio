@@ -12,6 +12,7 @@ public static class GenerationManagerModule
     {
         services.AddDbContext<GenerationManagerDbContext>(opt =>
             opt.UseNpgsql(config.GetConnectionString("Postgres")));
+        services.AddSingleton<GenerationManagerMetrics>();
         services.AddScoped<IGenerationManager, GenerationManagerService>();
         services.AddScoped<IStaleJobReconciler, StaleJobReconciler>();
         services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();

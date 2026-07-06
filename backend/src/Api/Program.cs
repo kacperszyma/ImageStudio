@@ -3,6 +3,7 @@ using OpenTelemetry.Resources;
 using Wallet;
 using Users;
 using Generation;
+using Generation.Fal;
 using GenerationManager;
 using Generation.Contracts;
 using SharedKernel;
@@ -61,9 +62,13 @@ builder.Services.AddOpenTelemetry()
         .AddService(serviceName: builder.Environment.ApplicationName))
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
-        .AddConsoleExporter((exporterOptions, metricReaderOptions) =>
+        .AddMeter(
+            GenerationManagerMetrics.MeterName,
+            FalMetrics.MeterName,
+            WalletMetrics.MeterName)
+        .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
         {
-            metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 1000;
+            metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 10000;
         }));
 
 var app = builder.Build();

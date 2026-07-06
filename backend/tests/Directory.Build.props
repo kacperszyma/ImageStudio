@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <!-- Suppress transitive EF Core version conflicts: Npgsql.EntityFrameworkCore.PostgreSQL
+         pulls in an older EFCore.Relational than the explicit 10.0.9 references in source
+         projects. MSBuild resolves to the higher version at runtime; this is safe noise. -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+  </PropertyGroup>
+</Project>

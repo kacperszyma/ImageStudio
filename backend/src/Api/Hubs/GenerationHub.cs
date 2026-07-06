@@ -1,11 +1,12 @@
 using GenerationManager.Contracts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Wallet.Contracts;
 
 namespace Api.Hubs;
 
 [Authorize]
-public sealed class GenerationHub(IGenerationManager generationManager) : Hub
+public sealed class GenerationHub(IGenerationManager generationManager, ILogger<GenerationHub> logger) : Hub
 {
     public override async Task OnConnectedAsync()
     {
@@ -27,9 +28,14 @@ public sealed class GenerationHub(IGenerationManager generationManager) : Hub
             // arrive later from the webhook via SignalRGenerationNotifier.
             await Clients.Caller.SendAsync("GenerationAccepted", jobId);
         }
+        catch (InsufficientFundsException)
+        {
+            await Clients.Caller.SendAsync("GenerationFailed", "InsufficientFunds");
+        }
         catch (Exception ex)
         {
-            await Clients.Caller.SendAsync("GenerationFailed", ex.Message);
+            logger.LogError(ex, "Failed to enqueue generation for user {UserId}", userId);
+            await Clients.Caller.SendAsync("GenerationFailed", "EnqueueFailed");
         }
     }
 }

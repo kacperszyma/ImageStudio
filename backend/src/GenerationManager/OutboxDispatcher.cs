@@ -24,6 +24,7 @@ internal sealed class OutboxDispatcher(
     IWalletService walletService,
     IGenerationService generationService,
     IGenerationNotifier notifier,
+    GenerationManagerMetrics metrics,
     ILogger<OutboxDispatcher> logger) : IOutboxDispatcher
 {
     public async Task DispatchPendingAsync(CancellationToken ct = default)
@@ -33,18 +34,22 @@ internal sealed class OutboxDispatcher(
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(ct);
 
+        metrics.OutboxBacklog(pending.Count);
+
         foreach (var message in pending)
         {
             try
             {
                 await DispatchAsync(message, ct);
                 message.ProcessedAt = DateTime.UtcNow;
+                metrics.OutboxMessageDispatched(message.ProcessedAt.Value - message.CreatedAt);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Leave it unprocessed; the next pass retries. Don't let one poison
                 // message stall the rest.
                 message.Attempts++;
+                metrics.OutboxDispatchFailed();
                 logger.LogError(ex,
                     "Outbox dispatch failed for message {MessageId} (job {JobId}), attempt {Attempts}.",
                     message.Id, message.JobId, message.Attempts);

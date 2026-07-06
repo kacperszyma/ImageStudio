@@ -83,9 +83,13 @@ public sealed class WalletDbFixture : IAsyncLifetime
         return new WalletDbContext(opts);
     }
 
-    internal WalletService CreateService() => new(CreateContext(), new NullPaymentGateway());
+    // Shared for the fixture's lifetime (one per test collection) so tests that
+    // care about emitted measurements can attach a MeterListener to it.
+    internal WalletMetrics Metrics { get; } = new();
 
-    internal WalletService CreateService(IPaymentGateway gateway) => new(CreateContext(), gateway);
+    internal WalletService CreateService() => new(CreateContext(), new NullPaymentGateway(), Metrics);
+
+    internal WalletService CreateService(IPaymentGateway gateway) => new(CreateContext(), gateway, Metrics);
 
     private sealed class NullPaymentGateway : IPaymentGateway
     {
