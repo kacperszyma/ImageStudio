@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,11 +22,17 @@ internal sealed class StaleJobReconciler(GenerationManagerDbContext db, Generati
 
     public async Task ReconcileAsync(CancellationToken ct = default)
     {
+        // This is the only span in the sweep: it runs on its own timer with no
+        // request behind it, so without this it's invisible in Tempo entirely.
+        using var activity = GenerationManagerActivitySource.Instance.StartActivity("outbox.reconcile_stale_jobs");
+
         var cutoff = DateTime.UtcNow - Timeout;
 
         var stale = await db.Jobs
             .Where(j => j.Status == GenerationJobStatus.Pending && j.CreatedAt < cutoff)
             .ToListAsync(ct);
+
+        activity?.SetTag("expired_count", stale.Count);
 
         foreach (var job in stale)
         {
@@ -42,6 +49,7 @@ internal sealed class StaleJobReconciler(GenerationManagerDbContext db, Generati
                 JobId = job.Id,
                 Payload = JsonSerializer.Serialize(new SettlePayload(Success: false, ImageUrl: null)),
                 CreatedAt = DateTime.UtcNow,
+                TraceParent = activity?.Id,
             });
             await db.SaveChangesAsync(ct);
 

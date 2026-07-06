@@ -22,6 +22,14 @@ internal sealed class OutboxMessage
 
     /// <summary>Dispatch attempts so far; lets a worker spot a poison message.</summary>
     public int Attempts { get; set; }
+
+    /// <summary>
+    /// W3C traceparent of whatever caused this to be enqueued (a webhook request,
+    /// or a reconciliation sweep). The dispatcher runs on a background timer with
+    /// no request of its own, so this is stored rather than propagated live — it
+    /// lets the dispatch span link back to the originating trace across the gap.
+    /// </summary>
+    public string? TraceParent { get; set; }
 }
 
 /// <summary>The settlement outcome the dispatcher must apply for a job.</summary>

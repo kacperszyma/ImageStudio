@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Generation.Contracts;
 using GenerationManager.Contracts;
@@ -29,20 +30,39 @@ internal sealed class OutboxDispatcher(
 {
     public async Task DispatchPendingAsync(CancellationToken ct = default)
     {
+        // The only span covering this pass: it's a background timer, not a
+        // request, so nothing else in the auto-instrumented pipeline sees it.
+        using var tick = GenerationManagerActivitySource.Instance.StartActivity("outbox.dispatch_tick");
+
         var pending = await db.Outbox
             .Where(m => m.ProcessedAt == null)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(ct);
 
         metrics.OutboxBacklog(pending.Count);
+        tick?.SetTag("pending_count", pending.Count);
 
+        int processedCount = 0, failedCount = 0;
         foreach (var message in pending)
         {
+            // Link back to the trace that enqueued this message (a webhook
+            // request, or a reconciliation sweep) so the two show up as related
+            // in Tempo even though the original trace ended long ago.
+            var links = ActivityContext.TryParse(message.TraceParent, null, out var origin)
+                ? new[] { new ActivityLink(origin) }
+                : null;
+            using var activity = GenerationManagerActivitySource.Instance.StartActivity(
+                "outbox.dispatch_message", ActivityKind.Internal, tick?.Context ?? default, links: links);
+            activity?.SetTag("message_id", message.Id.ToString());
+            activity?.SetTag("job_id", message.JobId.ToString());
+
             try
             {
                 await DispatchAsync(message, ct);
                 message.ProcessedAt = DateTime.UtcNow;
                 metrics.OutboxMessageDispatched(message.ProcessedAt.Value - message.CreatedAt);
+                activity?.SetTag("outcome", "dispatched");
+                processedCount++;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -50,12 +70,17 @@ internal sealed class OutboxDispatcher(
                 // message stall the rest.
                 message.Attempts++;
                 metrics.OutboxDispatchFailed();
+                activity?.SetTag("outcome", "failed");
+                failedCount++;
                 logger.LogError(ex,
                     "Outbox dispatch failed for message {MessageId} (job {JobId}), attempt {Attempts}.",
                     message.Id, message.JobId, message.Attempts);
             }
             await db.SaveChangesAsync(ct);
         }
+
+        tick?.SetTag("processed_count", processedCount);
+        tick?.SetTag("failed_count", failedCount);
     }
 
     private async Task DispatchAsync(OutboxMessage message, CancellationToken ct)

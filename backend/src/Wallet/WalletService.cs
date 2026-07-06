@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SharedKernel;
 using Wallet.Contracts;
 using System.Data;
+using System.Diagnostics;
 using Npgsql;
 
 namespace Wallet;
@@ -36,19 +37,32 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
 
     public async Task FreezeFundsAsync(Guid userId, long amount, Guid generationJobId, string idempotencyKey)
     {
+        using var activity = WalletActivitySource.Instance.StartActivity("wallet.freeze_funds");
+        activity?.SetTag("user_id", userId.ToString());
+        activity?.SetTag("amount", amount);
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(amount);
 
-        if (await HoldExistsAsync(idempotencyKey)) return;
+        if (await HoldExistsAsync(idempotencyKey))
+        {
+            activity?.SetTag("outcome", "duplicate");
+            return;
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
         {
             var wallet = await LockWalletAsync(userId);
-            if (await HoldExistsAsync(idempotencyKey)) return;   // concurrent duplicate
+            if (await HoldExistsAsync(idempotencyKey))   // concurrent duplicate
+            {
+                activity?.SetTag("outcome", "duplicate");
+                return;
+            }
 
             if (wallet.Balance < amount)
             {
                 metrics.InsufficientFunds();
+                activity?.SetTag("outcome", "insufficient_funds");
                 throw new InsufficientFundsException(userId, amount, wallet.Balance);
             }
 
@@ -76,10 +90,12 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
 
             await db.SaveChangesAsync();
             await tx.CommitAsync();
+            activity?.SetTag("outcome", "frozen");
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
             await tx.RollbackAsync();   // duplicate idempotency key — already processed
+            activity?.SetTag("outcome", "duplicate");
         }
         catch
         {
@@ -243,6 +259,12 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
 
     public async Task RedeemSessionAsync(string sessionId, Guid userId)
     {
+        // The webhook usually beats the browser's post-redirect call here, so this
+        // is very often already credited by the time the frontend asks. Check the
+        // ledger before paying for a live Stripe round-trip whose answer would just
+        // be thrown away as a duplicate anyway.
+        if (await LedgerEntryExistsAsync(sessionId)) return;
+
         var evt = await paymentGateway.FetchCompletedSessionAsync(sessionId);
         // Session not paid, invalid, or belongs to a different user — ignore silently.
         if (evt is null || evt.UserId != userId) return;
@@ -266,6 +288,9 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
 
     private async Task CreditSessionAsync(CheckoutCompletedEvent evt)
     {
+        using var activity = WalletActivitySource.Instance.StartActivity("wallet.credit_session");
+        activity?.SetTag("package", evt.PackageId);
+
         var package = PebblePackage.FromName(evt.PackageId);
         var amount = (long)package.PebbleAmount;
 
@@ -273,13 +298,21 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
         // already fully processed is a no-op. Crucially, idempotency is keyed on the
         // CREDIT, not on the purchase row — so a delivery that recorded the purchase
         // but never credited (a crash between the two) still gets healed below.
-        if (await LedgerEntryExistsAsync(evt.SessionId)) return;
+        if (await LedgerEntryExistsAsync(evt.SessionId))
+        {
+            activity?.SetTag("outcome", "duplicate");
+            return;
+        }
 
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
         try
         {
             var wallet = await LockWalletAsync(evt.UserId);
-            if (await LedgerEntryExistsAsync(evt.SessionId)) return; // concurrent duplicate
+            if (await LedgerEntryExistsAsync(evt.SessionId)) // concurrent duplicate
+            {
+                activity?.SetTag("outcome", "duplicate");
+                return;
+            }
 
             // Reuse the purchase from a prior partial delivery if present (keeps the
             // ledger FK valid); otherwise record it now. Purchase and credit commit
@@ -306,10 +339,12 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
             await db.SaveChangesAsync();
             await tx.CommitAsync();
             if (isNewPurchase) metrics.PurchaseCompleted(package.NameId);
+            activity?.SetTag("outcome", isNewPurchase ? "new_purchase" : "healed_credit");
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
             await tx.RollbackAsync(); // duplicate delivery — already recorded and credited
+            activity?.SetTag("outcome", "duplicate");
         }
         catch
         {

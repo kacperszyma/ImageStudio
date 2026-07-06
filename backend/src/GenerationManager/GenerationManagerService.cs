@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Generation.Contracts;
 using GenerationManager.Contracts;
@@ -15,7 +16,11 @@ internal sealed class GenerationManagerService(
 {
     public async Task<Guid> GenerateAsync(Guid userId, string modelSlug, string prompt)
     {
+        using var activity = GenerationManagerActivitySource.Instance.StartActivity("generation.create");
+        activity?.SetTag("model_slug", modelSlug);
+
         var jobId = Guid.NewGuid();
+        activity?.SetTag("job_id", jobId.ToString());
         var cost = generationService.GetCost(modelSlug);
 
         var job = new GenerationJob
@@ -39,6 +44,7 @@ internal sealed class GenerationManagerService(
             await db.SaveChangesAsync();
 
             metrics.JobCreated(modelSlug);
+            activity?.SetTag("outcome", "created");
             return jobId;
         }
         catch
@@ -48,6 +54,7 @@ internal sealed class GenerationManagerService(
             job.CompletedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             metrics.JobSubmitFailed();
+            activity?.SetTag("outcome", "rollback");
             throw;
         }
     }
@@ -82,6 +89,7 @@ internal sealed class GenerationManagerService(
         JobId = jobId,
         Payload = JsonSerializer.Serialize(new SettlePayload(success, imageUrl)),
         CreatedAt = DateTime.UtcNow,
+        TraceParent = Activity.Current?.Id,
     };
 
     public async Task<IReadOnlyList<GenerationHistoryItem>> GetHistoryAsync(Guid userId, int? limit = null)

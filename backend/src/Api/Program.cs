@@ -1,5 +1,6 @@
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Wallet;
 using Users;
 using Generation;
@@ -69,7 +70,22 @@ builder.Services.AddOpenTelemetry()
         .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
         {
             metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 10000;
-        }));
+        }))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation(options =>
+            // SignalR holds this connection open for as long as the browser tab
+            // is, so its request-level span would span that whole time and bury
+            // every short generation.create span inside an hours-long parent.
+            // Skip it: the interesting work already gets its own spans below.
+            options.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/generate"))
+        .AddHttpClientInstrumentation()
+        // Npgsql emits its own spans via this ActivitySource since v7 - no
+        // separate instrumentation package needed, just opt in to the source.
+        .AddSource("Npgsql")
+        .AddSource(
+            GenerationManagerActivitySource.Name,
+            WalletActivitySource.Name)
+        .AddOtlpExporter());
 
 var app = builder.Build();
 
