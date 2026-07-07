@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SharedKernel;
 using Wallet.Contracts;
 using System.Data;
@@ -7,7 +8,11 @@ using Npgsql;
 
 namespace Wallet;
 
-internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentGateway, WalletMetrics metrics) : IWalletService
+internal sealed class WalletService(
+    WalletDbContext db,
+    IPaymentGateway paymentGateway,
+    WalletMetrics metrics,
+    ILogger<WalletService> logger) : IWalletService
 {
     private const string HoldActive = "active";
     private const string HoldReleased = "released";
@@ -277,6 +282,7 @@ internal sealed class WalletService(WalletDbContext db, IPaymentGateway paymentG
         if (!paymentGateway.VerifyWebhookSignature(payload, signature))
         {
             metrics.StripeWebhookVerificationFailed();
+            logger.LogWarning("Stripe webhook signature verification failed.");
             throw new WebhookVerificationException("Invalid Stripe webhook signature.");
         }
 

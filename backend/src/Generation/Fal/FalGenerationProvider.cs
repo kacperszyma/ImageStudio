@@ -1,11 +1,15 @@
 using System.Text.Json;
 using Generation.Contracts;
+using Microsoft.Extensions.Logging;
 using SharedKernel;
 
 namespace Generation.Fal;
 
-internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerifier verifier, FalMetrics metrics)
-    : IGenerationProvider
+internal sealed class FalGenerationProvider(
+    FalClient falClient,
+    FalWebhookVerifier verifier,
+    FalMetrics metrics,
+    ILogger<FalGenerationProvider> logger) : IGenerationProvider
 {
     public async Task<string> SubmitJobAsync(string modelSlug, string prompt)
     {
@@ -25,6 +29,7 @@ internal sealed class FalGenerationProvider(FalClient falClient, FalWebhookVerif
         catch (WebhookVerificationException)
         {
             metrics.WebhookVerificationFailed();
+            logger.LogWarning("Fal webhook signature verification failed.");
             throw;
         }
         return Decode(request.Body);

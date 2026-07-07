@@ -1,3 +1,4 @@
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -15,8 +16,15 @@ using Scalar.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Wallet.Contracts;
 
-DotNetEnv.Env.Load("../../../.env");
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeFormattedMessage = true;
+    options.IncludeScopes = true;
+    options.ParseStateValues = true;
+    options.AddOtlpExporter();
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddSignalR();
@@ -43,7 +51,7 @@ builder.Services.AddAuthentication(options =>
         }).AddJwtBearer(options =>
         {
             options.Authority = "https://dev-yw7pijmj3lf7zgrf.us.auth0.com/";
-            options.Audience = "https://imagestudio-api";
+            options.Audience = builder.Configuration["AUTH_AUDIENCE"] ?? "https://imagestudio-api";
             options.MapInboundClaims = false;
             options.Events = new JwtBearerEvents
             {

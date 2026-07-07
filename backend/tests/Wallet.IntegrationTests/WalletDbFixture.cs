@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Wallet;
 
@@ -87,9 +88,11 @@ public sealed class WalletDbFixture : IAsyncLifetime
     // care about emitted measurements can attach a MeterListener to it.
     internal WalletMetrics Metrics { get; } = new();
 
-    internal WalletService CreateService() => new(CreateContext(), new NullPaymentGateway(), Metrics);
+    internal WalletService CreateService() =>
+        new(CreateContext(), new NullPaymentGateway(), Metrics, NullLogger<WalletService>.Instance);
 
-    internal WalletService CreateService(IPaymentGateway gateway) => new(CreateContext(), gateway, Metrics);
+    internal WalletService CreateService(IPaymentGateway gateway) =>
+        new(CreateContext(), gateway, Metrics, NullLogger<WalletService>.Instance);
 
     private sealed class NullPaymentGateway : IPaymentGateway
     {

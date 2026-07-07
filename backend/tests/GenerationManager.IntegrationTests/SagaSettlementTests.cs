@@ -19,7 +19,8 @@ public sealed class SagaSettlementTests(SagaDbFixture db)
     private static readonly FakeGenerationQueryService QueryService = new();
 
     private GenerationManagerService NewManager(FakeGenerationService gen) =>
-        new(gen, QueryService, db.CreateWalletService(), db.CreateManagerContext(), db.ManagerMetrics);
+        new(gen, QueryService, db.CreateWalletService(), db.CreateManagerContext(), db.ManagerMetrics,
+            NullLogger<GenerationManagerService>.Instance);
 
     private OutboxDispatcher NewDispatcher(FakeGenerationService gen, RecordingNotifier notifier) =>
         new(db.CreateManagerContext(), db.CreateWalletService(), gen, notifier, db.ManagerMetrics,
@@ -83,7 +84,8 @@ public sealed class SagaSettlementTests(SagaDbFixture db)
             .Should().Be(WalletAccount.StartingBalance - 50);
 
         // The reconciler expires it and enqueues the refund+notify.
-        await new StaleJobReconciler(db.CreateManagerContext(), db.ManagerMetrics).ReconcileAsync();
+        await new StaleJobReconciler(db.CreateManagerContext(), db.ManagerMetrics, NullLogger<StaleJobReconciler>.Instance)
+            .ReconcileAsync();
 
         // The dispatcher applies them.
         var notifier = new RecordingNotifier();

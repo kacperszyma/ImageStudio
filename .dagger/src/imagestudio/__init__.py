@@ -24,6 +24,7 @@ DOTNET_SDK = "mcr.microsoft.com/dotnet/sdk:10.0"
 DOTNET_RUNTIME = "mcr.microsoft.com/dotnet/aspnet:10.0"
 POSTGRES = "postgres:16"
 NODE = "node:22"
+OTEL_COLLECTOR = "otel/opentelemetry-collector-contrib:0.106.0"
 
 UNIT_TEST_PROJECTS = (
     "tests/Wallet.UnitTests "
@@ -172,6 +173,19 @@ class Imagestudio:
         out += "\n" + await self.frontend_build(frontend)
         return out
 
+    def _runtime_image(self, source: dagger.Directory) -> dagger.Container:
+        """The Api's runtime image: publish output copied onto the ASP.NET runtime base."""
+        published = self._sdk(source).with_exec(
+            ["dotnet", "publish", "src/Api/Api.csproj", "-c", "Release", "-o", "/out"]
+        )
+        return (
+            dag.container()
+            .from_(DOTNET_RUNTIME)
+            .with_directory("/app", published.directory("/out"))
+            .with_workdir("/app")
+            .with_entrypoint(["dotnet", "Api.dll"])
+        )
+
     @function
     async def publish(
         self,
@@ -179,17 +193,70 @@ class Imagestudio:
         registry_address: Annotated[str, Doc("e.g. ttl.sh/imagestudio-api:1h")],
     ) -> str:
         """Build the Api as a runtime image and push it to a registry."""
-        published = (
-            self._sdk(source)
-            .with_exec(
-                ["dotnet", "publish", "src/Api/Api.csproj", "-c", "Release", "-o", "/out"]
-            )
-        )
-        runtime = (
-            dag.container()
-            .from_(DOTNET_RUNTIME)
-            .with_directory("/app", published.directory("/out"))
-            .with_workdir("/app")
-            .with_entrypoint(["dotnet", "Api.dll"])
+        return await self._runtime_image(source).publish(registry_address)
+
+    @function
+    async def deploy_backend(
+        self,
+        source: BackendDir,
+        registry_address: Annotated[
+            str, Doc("e.g. us-central1-docker.pkg.dev/PROJECT_ID/imagestudio/api:GIT_SHA")
+        ],
+        gcp_token: Annotated[
+            dagger.Secret,
+            Doc(
+                "A GCP OAuth2 access token — run `gcloud auth login` then pass "
+                "--gcp-token=cmd:'gcloud auth print-access-token'. No service-account "
+                "key file involved; this always forces a human, browser-based login."
+            ),
+        ],
+    ) -> str:
+        """Build the Api runtime image and push it to Google Artifact Registry.
+
+        Artifact Registry accepts a short-lived OAuth2 access token as the
+        docker-login password with the literal username `oauth2accesstoken` —
+        that's the identity `gcloud auth login` just put in your browser.
+        """
+        runtime = self._runtime_image(source).with_registry_auth(
+            registry_address, "oauth2accesstoken", gcp_token
         )
         return await runtime.publish(registry_address)
+
+    @function
+    async def publish_otel_sidecar(
+        self,
+        registry_address: Annotated[
+            str, Doc("e.g. us-central1-docker.pkg.dev/PROJECT_ID/imagestudio/otel-collector:GIT_SHA")
+        ],
+        gcp_token: Annotated[
+            dagger.Secret,
+            Doc(
+                "A GCP OAuth2 access token — run `gcloud auth login` then pass "
+                "--gcp-token=cmd:'gcloud auth print-access-token'."
+            ),
+        ],
+        config: Annotated[
+            dagger.File,
+            DefaultPath("/observability/otel-collector-config.yml"),
+            Doc("otel-collector config baked into the image"),
+        ],
+    ) -> str:
+        """Build the otel-collector image with our config baked in and push it to Artifact Registry.
+
+        Cloud Run sidecars share localhost with the ingress container but can't
+        mount arbitrary host files, so the config is baked into the image rather
+        than passed via a `-config` flag at deploy time. The upstream image's
+        default config path is /etc/otelcol-contrib/config.yaml, so overwriting
+        that file is all that's needed — no entrypoint change.
+
+        Before deploying, point exporters (tempo:4317, loki:3100/otlp) at
+        reachable endpoints — those hostnames only resolve inside the local
+        docker-compose network.
+        """
+        image = (
+            dag.container()
+            .from_(OTEL_COLLECTOR)
+            .with_file("/etc/otelcol-contrib/config.yaml", config)
+            .with_registry_auth(registry_address, "oauth2accesstoken", gcp_token)
+        )
+        return await image.publish(registry_address)

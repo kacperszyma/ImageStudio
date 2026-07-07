@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace GenerationManager;
 
@@ -16,22 +17,26 @@ internal interface IStaleJobReconciler
 /// was never charged (the charge only happens via the outbox after a Completed
 /// decision), so its funds are still frozen and must be refunded.
 /// </summary>
-internal sealed class StaleJobReconciler(GenerationManagerDbContext db, GenerationManagerMetrics metrics) : IStaleJobReconciler
+internal sealed class StaleJobReconciler(
+    GenerationManagerDbContext db,
+    GenerationManagerMetrics metrics,
+    ILogger<StaleJobReconciler> logger) : IStaleJobReconciler
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(10);
 
     public async Task ReconcileAsync(CancellationToken ct = default)
     {
-        // This is the only span in the sweep: it runs on its own timer with no
-        // request behind it, so without this it's invisible in Tempo entirely.
-        using var activity = GenerationManagerActivitySource.Instance.StartActivity("outbox.reconcile_stale_jobs");
-
         var cutoff = DateTime.UtcNow - Timeout;
 
         var stale = await db.Jobs
             .Where(j => j.Status == GenerationJobStatus.Pending && j.CreatedAt < cutoff)
             .ToListAsync(ct);
 
+        if (stale.Count == 0) return; // runs every minute; most sweeps find nothing
+
+        // Only span sweeps that actually found something — an empty sweep has no
+        // causal story worth a trace.
+        using var activity = GenerationManagerActivitySource.Instance.StartActivity("outbox.reconcile_stale_jobs");
         activity?.SetTag("expired_count", stale.Count);
 
         foreach (var job in stale)
@@ -54,6 +59,9 @@ internal sealed class StaleJobReconciler(GenerationManagerDbContext db, Generati
             await db.SaveChangesAsync(ct);
 
             metrics.JobSettled("expired", job.CompletedAt.Value - job.CreatedAt);
+            logger.LogWarning(
+                "Generation job {JobId} expired: its webhook never arrived within the {Timeout} timeout.",
+                job.Id, Timeout);
         }
     }
 }

@@ -30,16 +30,17 @@ internal sealed class OutboxDispatcher(
 {
     public async Task DispatchPendingAsync(CancellationToken ct = default)
     {
-        // The only span covering this pass: it's a background timer, not a
-        // request, so nothing else in the auto-instrumented pipeline sees it.
-        using var tick = GenerationManagerActivitySource.Instance.StartActivity("outbox.dispatch_tick");
-
         var pending = await db.Outbox
             .Where(m => m.ProcessedAt == null)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(ct);
 
         metrics.OutboxBacklog(pending.Count);
+        if (pending.Count == 0) return; // the gauge above already says nothing's happening
+
+        // Only span passes that do real work: this runs every 5s forever, and an
+        // empty tick has no causal story worth a trace — the gauge covers it.
+        using var tick = GenerationManagerActivitySource.Instance.StartActivity("outbox.dispatch_tick");
         tick?.SetTag("pending_count", pending.Count);
 
         int processedCount = 0, failedCount = 0;
@@ -81,6 +82,11 @@ internal sealed class OutboxDispatcher(
 
         tick?.SetTag("processed_count", processedCount);
         tick?.SetTag("failed_count", failedCount);
+
+        if (failedCount > 0)
+            logger.LogWarning(
+                "Outbox dispatch tick processed {ProcessedCount} message(s), {FailedCount} failed.",
+                processedCount, failedCount);
     }
 
     private async Task DispatchAsync(OutboxMessage message, CancellationToken ct)

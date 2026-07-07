@@ -11,7 +11,8 @@ public static class UsersModule
         this IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<UsersDbContext>(opt =>
-            opt.UseNpgsql(config.GetConnectionString("Postgres")));
+            opt.UseNpgsql(config["DATABASE_CONNECTION_STRING"]));
+        services.AddMemoryCache();
         services.AddScoped<IUserService, UserService>();
         return services;
     }

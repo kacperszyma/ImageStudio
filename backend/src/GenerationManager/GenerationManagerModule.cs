@@ -11,7 +11,7 @@ public static class GenerationManagerModule
         this IServiceCollection services, IConfiguration config)
     {
         services.AddDbContext<GenerationManagerDbContext>(opt =>
-            opt.UseNpgsql(config.GetConnectionString("Postgres")));
+            opt.UseNpgsql(config["DATABASE_CONNECTION_STRING"]));
         services.AddSingleton<GenerationManagerMetrics>();
         services.AddScoped<IGenerationManager, GenerationManagerService>();
         services.AddScoped<IStaleJobReconciler, StaleJobReconciler>();

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Generation.Contracts;
 using GenerationManager.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Wallet.Contracts;
 
 namespace GenerationManager;
@@ -12,7 +13,8 @@ internal sealed class GenerationManagerService(
     IGenerationQueryService queryService,
     IWalletService walletService,
     GenerationManagerDbContext db,
-    GenerationManagerMetrics metrics) : IGenerationManager
+    GenerationManagerMetrics metrics,
+    ILogger<GenerationManagerService> logger) : IGenerationManager
 {
     public async Task<Guid> GenerateAsync(Guid userId, string modelSlug, string prompt)
     {
@@ -47,7 +49,7 @@ internal sealed class GenerationManagerService(
             activity?.SetTag("outcome", "created");
             return jobId;
         }
-        catch
+        catch (Exception ex)
         {
             await walletService.UnfreezeAsync(jobId);
             job.Status = GenerationJobStatus.Failed;
@@ -55,6 +57,9 @@ internal sealed class GenerationManagerService(
             await db.SaveChangesAsync();
             metrics.JobSubmitFailed();
             activity?.SetTag("outcome", "rollback");
+            logger.LogWarning(ex,
+                "Failed to submit generation job {JobId} ({ModelSlug}) to the provider; funds unfrozen.",
+                jobId, modelSlug);
             throw;
         }
     }

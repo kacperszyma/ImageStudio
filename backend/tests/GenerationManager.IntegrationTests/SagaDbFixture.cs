@@ -1,5 +1,6 @@
 using GenerationManager;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using Wallet;
 using Wallet.Contracts;
@@ -78,7 +79,7 @@ public sealed class SagaDbFixture : IAsyncLifetime
     // A fresh service (and DbContext) per call, mirroring the scoped lifetime each
     // HTTP request / webhook delivery gets in production.
     internal IWalletService CreateWalletService() =>
-        new WalletService(CreateWalletContext(), new NullPaymentGateway(), WalletMetrics);
+        new WalletService(CreateWalletContext(), new NullPaymentGateway(), WalletMetrics, NullLogger<WalletService>.Instance);
 
     private sealed class NullPaymentGateway : IPaymentGateway
     {
