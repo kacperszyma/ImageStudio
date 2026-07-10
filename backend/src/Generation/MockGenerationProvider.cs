@@ -12,4 +12,7 @@ internal sealed class MockGenerationProvider : IGenerationProvider
 
     public Task<GenerationCallback> ParseCallbackAsync(WebhookRequest request) =>
         throw new NotSupportedException("The mock provider completes synchronously and has no webhook callback.");
+
+    public Task<Stream> DownloadImageAsync(string imageUrl) =>
+        throw new NotSupportedException("The mock provider has no real images to download.");
 }

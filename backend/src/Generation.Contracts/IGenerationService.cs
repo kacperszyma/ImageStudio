@@ -7,7 +7,11 @@ public interface IGenerationService
     List<ModelDto> GetModels();
     long GetCost(string modelSlug);
     Task<string> SubmitAsync(Guid userId, string modelSlug, string prompt);
-    Task CompleteGenerationAsync(string requestId, string imageUrl);
+
+    /// <returns>The URL to show the user for this generation — not necessarily
+    /// <paramref name="imageUrl"/> itself, since the image may be re-hosted in our
+    /// own storage first.</returns>
+    Task<string> CompleteGenerationAsync(string requestId, string imageUrl);
 }
 
 public interface IGenerationQueryService

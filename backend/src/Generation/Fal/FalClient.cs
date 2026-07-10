@@ -49,4 +49,11 @@ internal sealed class FalClient
             throw;
         }
     }
+
+    /// <summary>Downloads a generated image from the URL Fal's webhook reported.
+    /// Note: this goes out on the same client as the enqueue call, so Fal's API
+    /// key rides along as a header — harmless against Fal's own domain, but worth
+    /// knowing if that URL ever points somewhere else.</summary>
+    internal Task<Stream> DownloadImageAsync(string imageUrl) =>
+        _httpClient.GetStreamAsync(imageUrl);
 }

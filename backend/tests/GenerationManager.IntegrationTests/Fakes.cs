@@ -33,7 +33,7 @@ internal sealed class FakeGenerationService : IGenerationService
         return Task.FromResult(NextRequestId);
     }
 
-    public Task CompleteGenerationAsync(string requestId, string imageUrl)
+    public Task<string> CompleteGenerationAsync(string requestId, string imageUrl)
     {
         if (FailNextArtifactWrite)
         {
@@ -42,7 +42,7 @@ internal sealed class FakeGenerationService : IGenerationService
         }
 
         _recordedImages[requestId] = imageUrl;
-        return Task.CompletedTask;
+        return Task.FromResult(imageUrl);
     }
 }
 

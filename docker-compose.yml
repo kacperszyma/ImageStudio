@@ -9,6 +9,15 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  fake-gcs:
+    image: fsouza/fake-gcs-server:1.54.0
+    container_name: fake-gcs
+    command: ["-scheme", "http", "-public-host", "localhost:4443", "-port", "4443"]
+    ports:
+      - "4443:4443"
+    volumes:
+      - fake_gcs_data:/data
+
   prometheus:
     image: prom/prometheus:v3.9.1
     container_name: prometheusdb
@@ -90,6 +99,7 @@ networks:
 
 volumes:
   postgres_data:
+  fake_gcs_data:
   prometheus_data:
   loki_data:
   tempo_data:

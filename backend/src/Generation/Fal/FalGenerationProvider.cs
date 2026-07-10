@@ -35,6 +35,9 @@ internal sealed class FalGenerationProvider(
         return Decode(request.Body);
     }
 
+    public Task<Stream> DownloadImageAsync(string imageUrl) =>
+        falClient.DownloadImageAsync(imageUrl);
+
     private static GenerationCallback Decode(byte[] body)
     {
         var payload = JsonSerializer.Deserialize<FalWebhookPayload>(body)

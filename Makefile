@@ -62,7 +62,7 @@ frontend:
 
 ## Backing services only — mirrors the README's `docker compose up -d`.
 db:
-	docker compose up -d postgres
+	docker compose up -d postgres fake-gcs
 
 ## Block until Postgres accepts connections so the backend doesn't race it.
 wait-db:

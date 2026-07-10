@@ -99,15 +99,69 @@ internal sealed class OutboxDispatcher(
 
         if (payload.Success)
         {
-            await walletService.ChargeFrozenAsync(job.Id);
+            // Defaults to the provider's own URL; overwritten below once the image
+            // has actually been re-hosted in our storage.
+            var displayUrl = payload.ImageUrl ?? "";
+
             if (job.FalRequestId is not null && payload.ImageUrl is not null)
-                await generationService.CompleteGenerationAsync(job.FalRequestId, payload.ImageUrl);
-            await notifier.CompletedAsync(job.UserId, job.Id, payload.ImageUrl ?? "");
+            {
+                var savedUrl = await TrySaveImageAsync(job, payload.ImageUrl);
+                if (savedUrl is null)
+                {
+                    // Image never made it to storage after a retry — this generation
+                    // can't be delivered. Unwind it the same way a provider-reported
+                    // failure is handled: refund the frozen credits, tell the user,
+                    // done. No further outbox retries — the message is still marked
+                    // processed by the caller once this method returns.
+                    Activity.Current?.SetTag("job_outcome", "image_save_failed");
+                    metrics.ImageSaveFailed();
+                    metrics.JobSettled("image_save_failed", DateTime.UtcNow - job.CreatedAt);
+
+                    await walletService.UnfreezeAsync(job.Id);
+                    job.Status = GenerationJobStatus.Failed;
+                    job.CompletedAt = DateTime.UtcNow;
+                    await notifier.FailedAsync(job.UserId, job.Id);
+                    return;
+                }
+                displayUrl = savedUrl;
+            }
+
+            await walletService.ChargeFrozenAsync(job.Id);
+            await notifier.CompletedAsync(job.UserId, job.Id, displayUrl);
         }
         else
         {
             await walletService.UnfreezeAsync(job.Id);
             await notifier.FailedAsync(job.UserId, job.Id);
         }
+    }
+
+    /// <summary>One retry on top of the first attempt — enough to ride out a transient
+    /// blip talking to the provider or the bucket without leaving the job to retry
+    /// forever on the outbox's own 5s loop. Returns the URL to show the user, or
+    /// null once both attempts are exhausted.</summary>
+    private async Task<string?> TrySaveImageAsync(GenerationJob job, string imageUrl)
+    {
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            try
+            {
+                var url = await generationService.CompleteGenerationAsync(job.FalRequestId!, imageUrl);
+                Activity.Current?.SetTag("image_save_attempts", attempt);
+                return url;
+            }
+            catch (Exception ex)
+            {
+                if (attempt == 2)
+                {
+                    logger.LogWarning(ex, "Saving image for job {JobId} failed after {Attempts} attempts; giving up.", job.Id, attempt);
+                    Activity.Current?.SetTag("image_save_attempts", attempt);
+                    return null;
+                }
+                metrics.ImageSaveRetried();
+                logger.LogWarning(ex, "Saving image for job {JobId} failed on attempt {Attempt}; retrying once.", job.Id, attempt);
+            }
+        }
+        return null; // unreachable — loop always returns from inside
     }
 }

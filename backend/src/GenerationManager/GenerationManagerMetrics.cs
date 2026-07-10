@@ -18,6 +18,8 @@ public sealed class GenerationManagerMetrics
     private readonly Gauge<int> _outboxBacklog;
     private readonly Counter<long> _outboxDispatchFailed;
     private readonly Histogram<double> _outboxMessageLag;
+    private readonly Counter<long> _imageSaveRetried;
+    private readonly Counter<long> _imageSaveFailed;
 
     public GenerationManagerMetrics()
     {
@@ -29,6 +31,8 @@ public sealed class GenerationManagerMetrics
         _outboxBacklog = meter.CreateGauge<int>("outbox.backlog");
         _outboxDispatchFailed = meter.CreateCounter<long>("outbox.dispatch_failed");
         _outboxMessageLag = meter.CreateHistogram<double>("outbox.message.lag", unit: "s");
+        _imageSaveRetried = meter.CreateCounter<long>("generation.image_save.retried");
+        _imageSaveFailed = meter.CreateCounter<long>("generation.image_save.failed");
     }
 
     public void JobCreated(string modelSlug) =>
@@ -49,4 +53,8 @@ public sealed class GenerationManagerMetrics
     public void OutboxDispatchFailed() => _outboxDispatchFailed.Add(1);
 
     public void OutboxMessageDispatched(TimeSpan lag) => _outboxMessageLag.Record(lag.TotalSeconds);
+
+    public void ImageSaveRetried() => _imageSaveRetried.Add(1);
+
+    public void ImageSaveFailed() => _imageSaveFailed.Add(1);
 }
