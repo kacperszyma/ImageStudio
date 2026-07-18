@@ -1,6 +1,6 @@
 import { HubConnectionBuilder, HubConnection } from "@microsoft/signalr";
 
-const BASE_URL = "http://localhost:5253";
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5253";
 
 export type GenerationHandlers = {
     /** Server accepted and enqueued the job. The image is not ready yet. */

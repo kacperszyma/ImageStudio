@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:5253"
+const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5253"
 
 type GetTokenFn = () => Promise<string>
 
