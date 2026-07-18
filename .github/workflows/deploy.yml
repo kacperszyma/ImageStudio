@@ -1,52 +1,83 @@
-name: Deploy backend
+name: Deploy
 
-# Re-runs `ci` (fail closed) then builds the Api image and pushes it to Google
-# Artifact Registry via the same `deploy-backend` Dagger function used locally
-# (see .dagger/ and `make deploy-backend`). Locally that function is fed an
-# OAuth2 token from a human `gcloud auth login`; here it's fed a short-lived
-# access token minted from the CI service account, so no long-lived key ever
-# reaches the container — only this workflow step sees GCP_SA_KEY.
+# Re-runs `ci` (fail closed), then backend and frontend deploy in parallel:
+#   deploy-backend  builds the Api image and pushes it to Artifact Registry
+#                   via the same `deploy-backend` Dagger function used locally
+#                   (see .dagger/ and `make deploy-backend`). Locally that
+#                   function is fed an OAuth2 token from a human
+#                   `gcloud auth login`; here it's fed a short-lived access
+#                   token minted from the CI service account, so no
+#                   long-lived key ever reaches the container — only this
+#                   workflow step sees GCP_SA_KEY.
+#   deploy-frontend builds the React app and deploys dist/ to Firebase
+#                   Hosting via the `deploy-frontend` Dagger function. The
+#                   Firebase CLI authenticates from the mounted service-
+#                   account key (GOOGLE_APPLICATION_CREDENTIALS) — no
+#                   `firebase login` involved.
 #
 # One-time setup in the repo's Settings → Environments → "production":
-#   Secrets   → GCP_SA_KEY        service-account JSON key with
-#                                  roles/artifactregistry.writer on the target repo
-#   Variables → GCP_PROJECT_ID    e.g. imagestudio-501617
-#              GCP_REGION         e.g. europe-west2
-#              GCP_ARTIFACT_REPO  e.g. conteiners
+#   Secrets   → GCP_SA_KEY            service-account JSON key with
+#                                      roles/artifactregistry.writer on the target repo
+#              FIREBASE_SA_KEY        service-account JSON key with
+#                                      roles/firebasehosting.admin on the Firebase project
+#   Variables → GCP_PROJECT_ID        e.g. imagestudio-501617
+#              GCP_REGION             e.g. europe-west2
+#              GCP_ARTIFACT_REPO      e.g. conteiners
+#              FIREBASE_PROJECT_ID    e.g. pebbleimage-e8167 (see frontend/.firebaserc)
 on:
   push:
     branches: [main]
 
 concurrency:
-  group: deploy-backend
+  group: deploy
   cancel-in-progress: false
 
 jobs:
   ci:
+    name: CI (backend + frontend)
     uses: ./.github/workflows/ci.yml
 
-  deploy:
+  deploy-backend:
     needs: ci
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - id: auth
+      - name: Authenticate to GCP (short-lived access token)
+        id: auth
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
           token_format: access_token
 
-      - name: Build registry address
+      - name: Compute Artifact Registry image tag
         run: |
           echo "REGISTRY_ADDRESS=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/api:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
-      - uses: dagger/dagger-for-github@v8.4.1
+      - name: Build & push backend image (dagger deploy-backend)
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: deploy-backend --registry-address=${{ env.REGISTRY_ADDRESS }} --gcp-token=env:GCP_TOKEN
         env:
           GCP_TOKEN: ${{ steps.auth.outputs.access_token }}
+
+  deploy-frontend:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build & deploy frontend to Firebase Hosting (dagger deploy-frontend)
+        uses: dagger/dagger-for-github@v8.4.1
+        with:
+          version: "0.21.7"
+          call: deploy-frontend --project-id=${{ vars.FIREBASE_PROJECT_ID }} --gcp-service-account-key=env:FIREBASE_SA_KEY
+        env:
+          FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}

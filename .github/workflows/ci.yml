@@ -18,14 +18,17 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - uses: dagger/dagger-for-github@v8.4.1
+      - name: Build backend (dotnet build)
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: build
 
-      - uses: dagger/dagger-for-github@v8.4.1
+      - name: Test backend (dotnet test, unit + integration)
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: test
@@ -33,14 +36,17 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - uses: dagger/dagger-for-github@v8.4.1
+      - name: Lint frontend (eslint)
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: frontend-lint
 
-      - uses: dagger/dagger-for-github@v8.4.1
+      - name: Build frontend (vite build)
+        uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: frontend-build
