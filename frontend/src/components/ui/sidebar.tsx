@@ -720,5 +720,7 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  // useSidebar is the public accessor for SidebarContext, shared from this file by design
+  // eslint-disable-next-line react-refresh/only-export-components
   useSidebar,
 }

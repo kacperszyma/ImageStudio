@@ -33,9 +33,11 @@ export default function HomePage() {
     enabled: isAuthenticated
   })
 
-  useEffect(() => {
-    if (models && models.length > 0) setModel(models[0].slug)
-  }, [models])
+  // Default to the first model once the list loads; a user pick (via
+  // onModelChange) leaves `model` non-empty so this never overrides it.
+  if (models && models.length > 0 && !model) {
+    setModel(models[0].slug)
+  }
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -85,26 +87,20 @@ export default function HomePage() {
     return () => { connection.stop() }
   }, [isAuthenticated])
 
-  // Animate progress up to the current gate
+  // Animate progress up to the current gate; reveal the image once it reaches 100.
   useEffect(() => {
     if (imageState !== "loading") return
 
     const id = setInterval(() => {
       setProgress(p => {
-        const next = p + 1.5
-        return next < gateRef.current ? next : gateRef.current
+        const next = p + 1.5 < gateRef.current ? p + 1.5 : gateRef.current
+        if (next >= 100) setImageState("result")
+        return next
       })
     }, 50)
 
     return () => clearInterval(id)
   }, [imageState])
-
-  // When bar reaches 100, reveal the image
-  useEffect(() => {
-    if (progress >= 100 && imageState === "loading") {
-      setImageState("result")
-    }
-  }, [progress, imageState])
 
   async function handleGenerate() {
     if (!hubRef.current || !hubConnected || !prompt.trim()) return

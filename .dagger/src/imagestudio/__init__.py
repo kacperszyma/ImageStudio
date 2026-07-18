@@ -25,6 +25,7 @@ DOTNET_RUNTIME = "mcr.microsoft.com/dotnet/aspnet:10.0"
 POSTGRES = "postgres:16"
 NODE = "node:22"
 OTEL_COLLECTOR = "otel/opentelemetry-collector-contrib:0.106.0"
+FIREBASE_TOOLS_VERSION = "15.24.0"
 
 UNIT_TEST_PROJECTS = (
     "tests/Wallet.UnitTests "
@@ -221,6 +222,35 @@ class Imagestudio:
             registry_address, "oauth2accesstoken", gcp_token
         )
         return await runtime.publish(registry_address)
+
+    @function
+    async def deploy_frontend(
+        self,
+        frontend: FrontendDir,
+        project_id: Annotated[str, Doc("Firebase project ID, e.g. pebbleimage-e8167")],
+        gcp_service_account_key: Annotated[
+            dagger.Secret,
+            Doc(
+                "JSON key for a service account with roles/firebasehosting.admin on the "
+                "Firebase project. Mounted as a file — the Firebase CLI picks it up via "
+                "GOOGLE_APPLICATION_CREDENTIALS, no `firebase login` involved."
+            ),
+        ],
+    ) -> str:
+        """Build the React app and deploy dist/ to Firebase Hosting (see frontend/firebase.json)."""
+        return await (
+            self._node(frontend)
+            .with_exec(["npm", "run", "build"])
+            .with_mounted_secret("/run/secrets/gcp-key.json", gcp_service_account_key)
+            .with_env_variable("GOOGLE_APPLICATION_CREDENTIALS", "/run/secrets/gcp-key.json")
+            .with_exec(
+                [
+                    "npx", "--yes", f"firebase-tools@{FIREBASE_TOOLS_VERSION}",
+                    "deploy", "--only", "hosting", "--project", project_id, "--non-interactive",
+                ]
+            )
+            .stdout()
+        )
 
     @function
     async def publish_otel_sidecar(
