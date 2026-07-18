@@ -1,0 +1,52 @@
+name: Deploy backend
+
+# Re-runs `ci` (fail closed) then builds the Api image and pushes it to Google
+# Artifact Registry via the same `deploy-backend` Dagger function used locally
+# (see .dagger/ and `make deploy-backend`). Locally that function is fed an
+# OAuth2 token from a human `gcloud auth login`; here it's fed a short-lived
+# access token minted from the CI service account, so no long-lived key ever
+# reaches the container — only this workflow step sees GCP_SA_KEY.
+#
+# One-time setup in the repo's Settings → Environments → "production":
+#   Secrets   → GCP_SA_KEY        service-account JSON key with
+#                                  roles/artifactregistry.writer on the target repo
+#   Variables → GCP_PROJECT_ID    e.g. imagestudio-501617
+#              GCP_REGION         e.g. europe-west2
+#              GCP_ARTIFACT_REPO  e.g. conteiners
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: access_token
+
+      - name: Build registry address
+        run: |
+          echo "REGISTRY_ADDRESS=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/api:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: dagger/dagger-for-github@v8
+        with:
+          version: "0.21.7"
+          call: deploy-backend --registry-address=${{ env.REGISTRY_ADDRESS }} --gcp-token=env:GCP_TOKEN
+        env:
+          GCP_TOKEN: ${{ steps.auth.outputs.access_token }}

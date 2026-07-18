@@ -1,0 +1,24 @@
+name: CI
+
+# Runs the same checks locally and in CI: `dagger call ci` builds + tests the
+# backend and lints + builds the frontend, all inside containers (see .dagger/).
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dagger/dagger-for-github@v8
+        with:
+          version: "0.21.7"
+          call: ci
