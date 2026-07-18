@@ -44,7 +44,7 @@ jobs:
         run: |
           echo "REGISTRY_ADDRESS=${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO }}/api:${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
-      - uses: dagger/dagger-for-github@v8
+      - uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
           call: deploy-backend --registry-address=${{ env.REGISTRY_ADDRESS }} --gcp-token=env:GCP_TOKEN
