@@ -12,6 +12,8 @@ import CompletePage from "@/pages/tokens/CompletePage"
 import BillingPage from "@/pages/billing/BillingPage"
 import GenerationDetailPage from "@/pages/generations/GenerationDetailPage"
 import TransactionDetailPage from "@/pages/transactions/TransactionDetailPage"
+import PrivacyPolicyPage from "@/pages/privacy/PrivacyPolicyPage"
+import TermsPage from "@/pages/ToS/TermsPage"
 import { Auth0Provider } from "@auth0/auth0-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -47,6 +49,8 @@ export default function App() {
             <Route path="/billing" element={<BillingPage />} />
             <Route path="/generations/:id" element={<GenerationDetailPage />} />
             <Route path="/transactions/:id" element={<TransactionDetailPage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
           </Routes>
         </Auth0Provider>
       </TooltipProvider>

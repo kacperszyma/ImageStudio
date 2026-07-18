@@ -1,3 +1,4 @@
+import { Link } from "react-router"
 import { useAuth0 } from "@auth0/auth0-react"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -80,6 +81,12 @@ export default function LandingPage() {
             <a href="#models" className="transition-colors hover:text-foreground">
               Models
             </a>
+            <Link to="/privacy" className="transition-colors hover:text-foreground">
+              Privacy Policy
+            </Link>
+            <Link to="/terms" className="transition-colors hover:text-foreground">
+              Terms
+            </Link>
             <button
               onClick={login}
               className="transition-colors hover:text-foreground"
