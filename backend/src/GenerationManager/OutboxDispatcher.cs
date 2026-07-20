@@ -10,7 +10,9 @@ namespace GenerationManager;
 
 internal interface IOutboxDispatcher
 {
-    Task DispatchPendingAsync(CancellationToken ct = default);
+    /// <summary>Drains pending messages. Returns whether any were found, so the
+    /// poller can back off when the outbox has been empty for a while.</summary>
+    Task<bool> DispatchPendingAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -28,7 +30,7 @@ internal sealed class OutboxDispatcher(
     GenerationManagerMetrics metrics,
     ILogger<OutboxDispatcher> logger) : IOutboxDispatcher
 {
-    public async Task DispatchPendingAsync(CancellationToken ct = default)
+    public async Task<bool> DispatchPendingAsync(CancellationToken ct = default)
     {
         var pending = await db.Outbox
             .Where(m => m.ProcessedAt == null)
@@ -36,7 +38,7 @@ internal sealed class OutboxDispatcher(
             .ToListAsync(ct);
 
         metrics.OutboxBacklog(pending.Count);
-        if (pending.Count == 0) return; // the gauge above already says nothing's happening
+        if (pending.Count == 0) return false; // the gauge above already says nothing's happening
 
         // Only span passes that do real work: this runs every 5s forever, and an
         // empty tick has no causal story worth a trace — the gauge covers it.
@@ -87,6 +89,8 @@ internal sealed class OutboxDispatcher(
             logger.LogWarning(
                 "Outbox dispatch tick processed {ProcessedCount} message(s), {FailedCount} failed.",
                 processedCount, failedCount);
+
+        return true;
     }
 
     private async Task DispatchAsync(OutboxMessage message, CancellationToken ct)
