@@ -24,6 +24,10 @@ name: Deploy
 #              GCP_REGION             e.g. europe-west2
 #              GCP_ARTIFACT_REPO      e.g. conteiners
 #              FIREBASE_PROJECT_ID    e.g. pebbleimage-e8167 (see frontend/.firebaserc)
+#              BACKEND_API_URL        the deployed Cloud Run URL, e.g.
+#                                     https://api-552572848082.europe-west1.run.app
+#              VITE_STRIPE_PUBLISHABLE_KEY  pk_live_... — not secret by design
+#                                     (Stripe publishable keys ship in the client bundle)
 on:
   push:
     branches: [main]
@@ -78,6 +82,10 @@ jobs:
         uses: dagger/dagger-for-github@v8.4.1
         with:
           version: "0.21.7"
-          call: deploy-frontend --project-id=${{ vars.FIREBASE_PROJECT_ID }} --gcp-service-account-key=env:FIREBASE_SA_KEY
+          call: >-
+            deploy-frontend --project-id=${{ vars.FIREBASE_PROJECT_ID }}
+            --api-url=${{ vars.BACKEND_API_URL }}
+            --stripe-publishable-key=${{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
+            --gcp-service-account-key=env:FIREBASE_SA_KEY
         env:
           FIREBASE_SA_KEY: ${{ secrets.FIREBASE_SA_KEY }}

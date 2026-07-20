@@ -228,6 +228,16 @@ class Imagestudio:
         self,
         frontend: FrontendDir,
         project_id: Annotated[str, Doc("Firebase project ID, e.g. pebbleimage-e8167")],
+        api_url: Annotated[
+            str, Doc("Deployed backend origin, e.g. https://api-552572848082.europe-west1.run.app")
+        ],
+        stripe_publishable_key: Annotated[
+            str,
+            Doc(
+                "Stripe publishable key (pk_live_... / pk_test_...) — safe to pass as "
+                "plain text, it's meant to ship in the client bundle."
+            ),
+        ],
         gcp_service_account_key: Annotated[
             dagger.Secret,
             Doc(
@@ -237,9 +247,16 @@ class Imagestudio:
             ),
         ],
     ) -> str:
-        """Build the React app and deploy dist/ to Firebase Hosting (see frontend/firebase.json)."""
+        """Build the React app and deploy dist/ to Firebase Hosting (see frontend/firebase.json).
+
+        api_url and stripe_publishable_key are baked into the bundle at build time (Vite
+        only reads VITE_* vars during `npm run build`) — there's no way to change them
+        without rebuilding and redeploying.
+        """
         return await (
             self._node(frontend)
+            .with_env_variable("VITE_API_URL", api_url)
+            .with_env_variable("VITE_STRIPE_PUBLISHABLE_KEY", stripe_publishable_key)
             .with_exec(["npm", "run", "build"])
             .with_mounted_secret("/run/secrets/gcp-key.json", gcp_service_account_key)
             .with_env_variable("GOOGLE_APPLICATION_CREDENTIALS", "/run/secrets/gcp-key.json")

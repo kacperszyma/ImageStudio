@@ -151,7 +151,13 @@ app.MapPost(falWebhookPath, async (
     return Results.Ok();
 });
 
-app.MapPost("stripe/webhook", async (HttpRequest request, IWalletService walletService) =>
+// Stripe posts payment events here. Path is derived from the same config
+// value used to register the webhook endpoint in the Stripe dashboard, so
+// the endpoint and the registration can never drift apart.
+var stripeWebhookPath = new Uri(app.Configuration["STRIPE_WEBHOOK_URL"]
+    ?? throw new InvalidOperationException("STRIPE_WEBHOOK_URL is not configured.")).AbsolutePath;
+
+app.MapPost(stripeWebhookPath, async (HttpRequest request, IWalletService walletService) =>
 {
     WebhookRequest webhook = await ExtractWebhook(request);
 
