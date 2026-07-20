@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 type ImageState = "idle" | "loading" | "result"
 
-export function ImageArea({ state, imageUrl, progress }: { state: ImageState; imageUrl?: string; progress?: number }) {
+export function ImageArea({ state, imageUrl, progress, statusText }: { state: ImageState; imageUrl?: string; progress?: number; statusText?: string }) {
   return (
     <div className="w-full rounded-xl overflow-hidden border border-border">
       <AspectRatio ratio={1}>
@@ -17,6 +17,13 @@ export function ImageArea({ state, imageUrl, progress }: { state: ImageState; im
         {state === "loading" && (
           <div className="relative h-full w-full">
             <Skeleton className="h-full w-full rounded-none" />
+            {statusText && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="animate-pulse text-sm text-muted-foreground">
+                  {statusText}
+                </span>
+              </div>
+            )}
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted">
               <div
                 className="h-full bg-primary transition-[width] duration-300 ease-out"
