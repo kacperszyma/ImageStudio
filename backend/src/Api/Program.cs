@@ -33,12 +33,18 @@ builder.Services.AddWalletModule(builder.Configuration);
 builder.Services.AddUsersModule(builder.Configuration);
 builder.Services.AddGenerationModule(builder.Configuration);
 builder.Services.AddGenerationManagerModule(builder.Configuration);
+// STRIPE_RETURN_URL already points at wherever the frontend is actually
+// deployed (localhost:5173 in dev, the real domain in prod) — reuse its
+// origin for CORS instead of introducing a second config value to keep in sync.
+var frontendOrigin = new Uri(builder.Configuration["STRIPE_RETURN_URL"]
+    ?? throw new InvalidOperationException("STRIPE_RETURN_URL is not configured.")).GetLeftPart(UriPartial.Authority);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: "Frontend",
                       policy =>
                       {
-                          policy.WithOrigins("http://localhost:5173")
+                          policy.WithOrigins(frontendOrigin)
                                 .AllowAnyHeader()
                                 .AllowAnyMethod()
                                 .AllowCredentials();
