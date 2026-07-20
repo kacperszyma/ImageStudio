@@ -1,5 +1,6 @@
 import { Link } from "react-router"
 import { ArrowLeft } from "lucide-react"
+import { Footer } from "@/components/Footer"
 
 const EFFECTIVE_DATE = "2026-07-18"
 const CONTACT_EMAIL = "k.szymanski617@gmail.com"
@@ -273,6 +274,8 @@ export default function TermsPage() {
           </section>
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }

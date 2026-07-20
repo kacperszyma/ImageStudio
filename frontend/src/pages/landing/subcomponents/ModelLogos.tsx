@@ -32,7 +32,13 @@ function OpenAiMark() {
 }
 
 function NanoBananaMark() {
-  return <img src="/nanobanana-color.svg" alt="" className="h-6 w-6" />
+  return (
+    <img
+      src="/nanobanana-color.svg"
+      alt=""
+      className="h-6 w-6 grayscale brightness-0 opacity-60 dark:invert"
+    />
+  )
 }
 
 const providers: Provider[] = [
@@ -58,11 +64,14 @@ const providers: Provider[] = [
   },
 ]
 
-const loop = [...providers, ...providers]
+// One "half" of the strip must stay wider than any real viewport, or the
+// loop point becomes visible as a jump once the last icon scrolls off.
+const COPIES_PER_HALF = 6
+const loop = Array.from({ length: COPIES_PER_HALF * 2 }, () => providers).flat()
 
 export function ModelLogos() {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-border bg-card/40 backdrop-blur-xl">
+    <div className="relative w-full overflow-hidden border-y border-border bg-card/40 backdrop-blur-xl">
       <div
         className="pointer-events-none absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full opacity-20 blur-3xl"
         style={{ background: "#f7ec6a" }}
@@ -70,21 +79,24 @@ export function ModelLogos() {
       />
 
       <div className="relative py-8 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
-        <ul className="flex w-max animate-marquee gap-4 px-6">
+        <ul
+          className="flex w-max animate-marquee gap-4 px-6"
+          style={{ animationDuration: `${28 * COPIES_PER_HALF}s` }}
+        >
           {loop.map((provider, i) => (
             <li
               key={`${provider.name}-${i}`}
               aria-hidden={i >= providers.length}
-              className="flex w-64 shrink-0 items-center gap-3 rounded-2xl border border-border bg-card/60 backdrop-blur-sm px-6 py-4"
+              className="flex w-64 shrink-0 items-center gap-3 px-6 py-4"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center text-foreground/60">
                 {provider.mark}
               </span>
               <div className="min-w-0">
-                <div className="font-heading text-sm font-medium text-foreground truncate">
+                <div className="font-heading text-sm font-medium text-foreground/60 truncate">
                   {provider.name}
                 </div>
-                <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                <div className="mt-0.5 text-xs text-foreground/40 truncate">
                   {provider.models.join(" · ")}
                 </div>
               </div>
